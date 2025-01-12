@@ -37,6 +37,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    'rest_framework',
+    'corsheaders',
+    'users',
 ]
 
 MIDDLEWARE = [
@@ -66,6 +69,17 @@ TEMPLATES = [
         },
     },
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+AUTH_USER_MODEL = 'users.CustomUser'
+APPEND_SLASH = False
 
 WSGI_APPLICATION = "core.wsgi.application"
 

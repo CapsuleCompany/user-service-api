@@ -5,6 +5,7 @@ from rest_framework import status
 from .serializers import UserSerializer
 from .serializers import UserCreationSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import AllowAny
 
 
 class UserProfileView(APIView):
@@ -23,6 +24,7 @@ class UserProfileView(APIView):
 
 
 class UserCreationView(APIView):
+    permission_classes = [AllowAny]
     def post(self, request):
         serializer = UserCreationSerializer(data=request.data)
         if serializer.is_valid():

@@ -11,7 +11,6 @@ class EmailOrPhoneBackend(BaseBackend):
     """
 
     def authenticate(self, request, email_or_phone=None, password=None, **kwargs):
-        print('here------xx')
         try:
             # Check if the user exists with the given email or phone number
             user = User.objects.filter(

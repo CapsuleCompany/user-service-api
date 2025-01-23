@@ -26,10 +26,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    'rest_framework_simplejwt.token_blacklist',
-    'rest_framework',
-    'corsheaders',
-    'users',
+    "rest_framework_simplejwt.token_blacklist",
+    "rest_framework",
+    "corsheaders",
+    "users",
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -65,14 +65,14 @@ TEMPLATES = [
 ]
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-AUTH_USER_MODEL = 'users.CustomUser'
+AUTH_USER_MODEL = "users.CustomUser"
 APPEND_SLASH = False
 
 WSGI_APPLICATION = "core.wsgi.application"
@@ -148,6 +148,4 @@ SIMPLE_JWT = {
 }
 
 
-AUTHENTICATION_BACKENDS = [
-    "users.authentication.EmailOrPhoneBackend"
-]
+AUTHENTICATION_BACKENDS = ["users.authentication.EmailOrPhoneBackend"]

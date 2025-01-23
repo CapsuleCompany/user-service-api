@@ -1,8 +1,7 @@
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, get_user_model
 from django.utils.translation import gettext_lazy as _
 from rest_framework.exceptions import AuthenticationFailed
 from phonenumbers import parse, is_valid_number, NumberParseException
-from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 import re
@@ -56,8 +55,26 @@ class CustomTokenObtainPairSerializer(serializers.Serializer):
         """Validate phone number format for supported regions."""
         # List of regions for English-speaking countries
         countries = [
-            "US", "GB", "CA", "AU", "NZ", "IE", "ZA", "IN", "PH", "SG",
-            "NG", "KE", "JM", "TT", "MT", "BB", "GH", "PK", "FJ", "BZ"
+            "US",
+            "GB",
+            "CA",
+            "AU",
+            "NZ",
+            "IE",
+            "ZA",
+            "IN",
+            "PH",
+            "SG",
+            "NG",
+            "KE",
+            "JM",
+            "TT",
+            "MT",
+            "BB",
+            "GH",
+            "PK",
+            "FJ",
+            "BZ",
         ]
 
         for region in countries:
@@ -74,49 +91,62 @@ class CustomTokenObtainPairSerializer(serializers.Serializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'email', 'phone_number', 'address']
-        read_only_fields = ['id']
+        fields = ["id", "email", "phone_number", "address"]
+        read_only_fields = ["id"]
 
 
 class UserCreationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['email', 'phone_number', 'password', 'first_name', 'last_name']
+        fields = ["email", "phone_number", "password", "first_name", "last_name"]
         extra_kwargs = {
-            'password': {'write_only': True},
+            "password": {"write_only": True},
         }
 
     def create(self, validated_data):
         # Automatically generate a username if not provided
-        email_or_phone = validated_data.get('email') or validated_data.get('phone_number')
-        username = email_or_phone.split('@')[0] if '@' in email_or_phone else email_or_phone
+        email_or_phone = validated_data.get("email") or validated_data.get(
+            "phone_number"
+        )
+        username = (
+            email_or_phone.split("@")[0] if "@" in email_or_phone else email_or_phone
+        )
 
         user = User.objects.create_user(
             username=username,
-            email=validated_data.get('email'),
-            phone_number=validated_data.get('phone_number'),
-            password=validated_data.get('password'),
-            first_name=validated_data.get('first_name'),
-            last_name=validated_data.get('last_name')
+            email=validated_data.get("email"),
+            phone_number=validated_data.get("phone_number"),
+            password=validated_data.get("password"),
+            first_name=validated_data.get("first_name"),
+            last_name=validated_data.get("last_name"),
         )
         return user
 
 
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(label=_("Email or Phone"), required=True)
-    password = serializers.CharField(label=_("Password"), style={'input_type': 'password'}, trim_whitespace=False)
+    password = serializers.CharField(
+        label=_("Password"), style={"input_type": "password"}, trim_whitespace=False
+    )
 
     def validate(self, attrs):
-        username = attrs.get('username')
-        password = attrs.get('password')
+        username = attrs.get("username")
+        password = attrs.get("password")
 
         if username and password:
-            user = authenticate(request=self.context.get('request'), username=username, password=password)
+            user = authenticate(
+                request=self.context.get("request"),
+                username=username,
+                password=password,
+            )
             if not user:
-                raise serializers.ValidationError(_("Invalid credentials"), code='authorization')
+                raise serializers.ValidationError(
+                    _("Invalid credentials"), code="authorization"
+                )
         else:
-            raise serializers.ValidationError(_("Must include 'username' and 'password'"), code='authorization')
+            raise serializers.ValidationError(
+                _("Must include 'username' and 'password'"), code="authorization"
+            )
 
-        attrs['user'] = user
+        attrs["user"] = user
         return attrs
-

@@ -14,7 +14,9 @@ SECRET_KEY = "django-insecure-hmo)i2b-t@ri7g*#=e0-0b3d_44w*#9!202nldkf#9!77$*z7%
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "dev.capsuleio.com"
+]
 
 
 # Application definition

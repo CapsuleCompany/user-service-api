@@ -16,6 +16,11 @@ RUN apt-get update && apt-get install -y \
 # Install pip manually using get-pip.py
 RUN wget https://bootstrap.pypa.io/get-pip.py && python3.12 get-pip.py && rm get-pip.py
 
+# Set up aliases for convenience
+RUN echo "alias python=python3.12" >> ~/.bashrc && \
+    echo "alias makemigrations='python manage.py makemigrations'" >> ~/.bashrc && \
+    echo "alias migrate='python manage.py migrate'" >> ~/.bashrc
+
 # Set working directory
 WORKDIR /app
 
@@ -31,3 +36,6 @@ EXPOSE 8000
 
 # Run the application
 CMD ["python3.12", "manage.py", "runserver", "0.0.0.0:8000"]
+
+# Set the default shell to bash to ensure aliases work
+SHELL ["/bin/bash", "-c"]

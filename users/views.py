@@ -10,6 +10,7 @@ from .serializers import (
 )
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.exceptions import AuthenticationFailed
 
 
 class UserProfileView(APIView):
@@ -33,11 +34,20 @@ class UserCreationView(APIView):
     def post(self, request):
         serializer = UserCreationSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response(
-                {"message": "User created successfully!"},
-                status=status.HTTP_201_CREATED,
-            )
+            user = serializer.save()
+
+            # Generate tokens for the user
+            try:
+                refresh = RefreshToken.for_user(user)
+                return Response(
+                    {
+                        "refresh": str(refresh),
+                        "access": str(refresh.access_token),
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
+            except Exception as e:
+                raise AuthenticationFailed(f"Token generation failed: {str(e)}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

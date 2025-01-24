@@ -104,23 +104,37 @@ class UserCreationSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
-        # Automatically generate a username if not provided
-        email_or_phone = validated_data.get("email") or validated_data.get(
-            "phone_number"
-        )
+        email_or_phone = validated_data.get("email") or validated_data.get("phone_number")
         username = (
             email_or_phone.split("@")[0] if "@" in email_or_phone else email_or_phone
         )
 
-        user = User.objects.create_user(
-            username=username,
-            email=validated_data.get("email"),
-            phone_number=validated_data.get("phone_number"),
-            password=validated_data.get("password"),
-            first_name=validated_data.get("first_name"),
-            last_name=validated_data.get("last_name"),
-        )
-        return user
+        try:
+            # Check for duplicate email
+            if validated_data.get("email") and User.objects.filter(email=validated_data.get("email")).exists():
+                raise serializers.ValidationError({"email": "This email is already in use."})
+
+            # Check for duplicate phone number
+            if validated_data.get("phone_number") and User.objects.filter(phone_number=validated_data.get("phone_number")).exists():
+                raise serializers.ValidationError({"phone_number": "This phone number is already in use."})
+
+            # Create the user
+            user = User.objects.create_user(
+                username=username,
+                email=validated_data.get("email"),
+                phone_number=validated_data.get("phone_number"),
+                password=validated_data.get("password"),
+                first_name=validated_data.get("first_name"),
+                last_name=validated_data.get("last_name"),
+            )
+            return user
+
+        except serializers.ValidationError as e:
+            # Raise validation errors for specific fields
+            raise e
+        except Exception as e:
+            # Handle unexpected errors
+            raise serializers.ValidationError({"error": f"An error occurred: {str(e)}"})
 
 
 class LoginSerializer(serializers.Serializer):

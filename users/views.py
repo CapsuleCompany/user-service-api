@@ -1,16 +1,15 @@
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status
 from .serializers import (
     UserSerializer,
-    CustomTokenObtainPairSerializer,
+    GetTokenPairSerializer,
     UserCreationSerializer,
     LoginSerializer,
 )
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework.exceptions import AuthenticationFailed
 
 
 class UserProfileView(APIView):
@@ -36,18 +35,25 @@ class UserCreationView(APIView):
         if serializer.is_valid():
             user = serializer.save()
 
-            # Generate tokens for the user
             try:
                 refresh = RefreshToken.for_user(user)
                 return Response(
                     {
                         "refresh": str(refresh),
                         "access": str(refresh.access_token),
+                        "user": {
+                            "id": user.id,
+                            "email": user.email,
+                            "username": user.username,
+                        },
                     },
                     status=status.HTTP_201_CREATED,
                 )
             except Exception as e:
-                raise AuthenticationFailed(f"Token generation failed: {str(e)}")
+                return Response(
+                    {"error": f"Token generation failed: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -112,4 +118,5 @@ class LogoutView(APIView):
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
-    serializer_class = CustomTokenObtainPairSerializer
+    serializer_class = GetTokenPairSerializer
+

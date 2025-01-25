@@ -4,12 +4,14 @@ from rest_framework.exceptions import AuthenticationFailed
 from phonenumbers import parse, is_valid_number, NumberParseException
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.db import IntegrityError, transaction
 import re
+
 
 User = get_user_model()
 
 
-class CustomTokenObtainPairSerializer(serializers.Serializer):
+class GetTokenPairSerializer(serializers.Serializer):
     email_or_phone = serializers.CharField(write_only=True)
     password = serializers.CharField(write_only=True)
     refresh = serializers.CharField(read_only=True)
@@ -100,41 +102,82 @@ class UserCreationSerializer(serializers.ModelSerializer):
         model = User
         fields = ["email", "phone_number", "password", "first_name", "last_name"]
         extra_kwargs = {
-            "password": {"write_only": True},
+            "email": {"required": False},
+            "phone_number": {"required": False},
+            "password": {"write_only": True, "required": True},
+            "first_name": {"required": True},
+            "last_name": {"required": True},
         }
 
+    def validate(self, data):
+        """
+        Validate that at least one of `email` or `phone_number` is provided.
+        Validate phone number format and uniqueness.
+        """
+        errors = {}
+
+        # Ensure at least one of email or phone number is provided
+        if not data.get("email") and not data.get("phone_number"):
+            errors["email_or_phone"] = "Either email or phone number must be provided."
+
+        # Validate phone number format
+        phone_number = data.get("phone_number")
+        if phone_number and not self.is_valid_phone(phone_number):
+            errors["phone_number"] = "Invalid phone number format."
+
+        # Check for duplicate phone number
+        if phone_number and User.objects.filter(phone_number=phone_number).exists():
+            errors["phone_number"] = "A user with this phone number already exists."
+
+        # Check for duplicate email
+        email = data.get("email")
+        if email and User.objects.filter(email=email).exists():
+            errors["email"] = "A user with this email already exists."
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return data
+
+    @staticmethod
+    def is_valid_phone(phone_number):
+        """Validate phone number format for supported regions."""
+        countries = [
+            "US", "GB", "CA", "AU", "NZ", "IE", "ZA", "IN", "PH", "SG", "NG",
+            "KE", "JM", "TT", "MT", "BB", "GH", "PK", "FJ", "BZ"
+        ]
+        for region in countries:
+            try:
+                parsed_number = parse(phone_number, region)
+                if is_valid_number(parsed_number):
+                    return True
+            except NumberParseException:
+                continue
+        return False
+
     def create(self, validated_data):
-        email_or_phone = validated_data.get("email") or validated_data.get("phone_number")
-        username = (
-            email_or_phone.split("@")[0] if "@" in email_or_phone else email_or_phone
-        )
-
+        """
+        Create a new user instance with the provided data.
+        """
         try:
-            # Check for duplicate email
-            if validated_data.get("email") and User.objects.filter(email=validated_data.get("email")).exists():
-                raise serializers.ValidationError({"email": "This email is already in use."})
+            with transaction.atomic():
+                username = validated_data.get("email") or validated_data.get("phone_number")
 
-            # Check for duplicate phone number
-            if validated_data.get("phone_number") and User.objects.filter(phone_number=validated_data.get("phone_number")).exists():
-                raise serializers.ValidationError({"phone_number": "This phone number is already in use."})
-
-            # Create the user
-            user = User.objects.create_user(
-                username=username,
-                email=validated_data.get("email"),
-                phone_number=validated_data.get("phone_number"),
-                password=validated_data.get("password"),
-                first_name=validated_data.get("first_name"),
-                last_name=validated_data.get("last_name"),
-            )
-            return user
-
-        except serializers.ValidationError as e:
-            # Raise validation errors for specific fields
-            raise e
+                user = User.objects.create_user(
+                    username=username,
+                    email=validated_data.get("email"),
+                    phone_number=validated_data.get("phone_number"),
+                    password=validated_data["password"],
+                    first_name=validated_data["first_name"],
+                    last_name=validated_data["last_name"],
+                )
+                return user
+        except IntegrityError as e:
+            if "username" in str(e):
+                raise serializers.ValidationError({"username": "A user with this username already exists."})
+            raise serializers.ValidationError({"non_field_error": "A database error occurred."})
         except Exception as e:
-            # Handle unexpected errors
-            raise serializers.ValidationError({"error": f"An error occurred: {str(e)}"})
+            raise serializers.ValidationError({"error": f"An unexpected error occurred: {str(e)}"})
 
 
 class LoginSerializer(serializers.Serializer):

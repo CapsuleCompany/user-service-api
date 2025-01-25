@@ -3,13 +3,23 @@ from django.db import models
 from django.conf import settings
 
 
-class CustomUser(AbstractUser):
+class AuthUser(AbstractUser):
     email = models.EmailField(unique=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True, unique=True)
     address = models.TextField(blank=True, null=True)
     country = models.CharField(max_length=2, blank=True, default="US")
+    is_email_verified = models.BooleanField(default=False)
+    is_phone_verified = models.BooleanField(default=False)
+
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["phone_number"]
+
+    @property
+    def is_verified(self):
+        return self.is_email_verified and self.is_phone_verified
+
+    def __str__(self):
+        return self.email
 
 
 class UserSettings(models.Model):

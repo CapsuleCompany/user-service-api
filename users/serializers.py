@@ -102,8 +102,11 @@ class UserCreationSerializer(serializers.ModelSerializer):
         model = User
         fields = ["email", "phone_number", "password", "first_name", "last_name"]
         extra_kwargs = {
+<<<<<<< HEAD
             "email": {"required": False},
             "phone_number": {"required": False},
+=======
+>>>>>>> b13c786 (chore: add tests)
             "password": {"write_only": True, "required": True},
             "first_name": {"required": True},
             "last_name": {"required": True},

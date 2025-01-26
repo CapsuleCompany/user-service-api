@@ -1,16 +1,18 @@
+from environs import Env
 from pathlib import Path
 from datetime import timedelta
-from decouple import Config, RepositoryEnv
+
+# Initialize environs
+env = Env()
+env.read_env()
 
 # Base directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-config = Config(RepositoryEnv('/app/.env'))
-
 # Security settings
-SECRET_KEY = config("DJANGO_SECRET")
-DEBUG = config("DJANGO_DEBUG", default=True, cast=bool)
-ALLOWED_HOSTS = config("DJANGO_ALLOWED_HOSTS", default="localhost").split(",")
+SECRET_KEY = env.str("DJANGO_SECRET")
+DEBUG = env.bool("DJANGO_DEBUG", default=True)
+ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost"])
 
 # Installed apps
 INSTALLED_APPS = [
@@ -22,7 +24,6 @@ INSTALLED_APPS = [
     "corsheaders",
     "users",
 ]
-
 
 # Middleware
 MIDDLEWARE = [
@@ -69,21 +70,20 @@ SIMPLE_JWT = {
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("POSTGRES_DB", default="app_database"),
-        "USER": config("POSTGRES_USER", default="postgres"),
-        "PASSWORD": config("POSTGRES_PASSWORD", default="password"),
-        "HOST": config("POSTGRES_HOST", default="localhost"),
-        "PORT": config("POSTGRES_PORT", default="5432"),
+        "NAME": env.str("POSTGRES_DB", default="app_database"),
+        "USER": env.str("POSTGRES_USER", default="postgres"),
+        "PASSWORD": env.str("POSTGRES_PASSWORD", default="password"),
+        "HOST": env.str("POSTGRES_HOST", default="localhost"),
+        "PORT": env.int("POSTGRES_PORT", default=5432),
         "OPTIONS": {
             "options": "-c search_path=users_api"
         },
     }
 }
 
-
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", default=True, cast=bool)
-CORS_ALLOW_CREDENTIALS = config("CORS_ALLOW_CREDENTIALS", default=True, cast=bool)
+CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=True)
+CORS_ALLOW_CREDENTIALS = env.bool("CORS_ALLOW_CREDENTIALS", default=True)
 
 # Custom user model and authentication backend
 AUTH_USER_MODEL = "users.AuthUser"

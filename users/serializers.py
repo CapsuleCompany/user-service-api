@@ -165,7 +165,6 @@ class UserCreationSerializer(serializers.ModelSerializer):
         try:
             with transaction.atomic():
                 username = validated_data.get("email") or validated_data.get("phone_number")
-
                 user = User.objects.create_user(
                     username=username,
                     email=validated_data.get("email"),

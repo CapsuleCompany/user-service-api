@@ -4,9 +4,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from phonenumbers import parse, is_valid_number, NumberParseException
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.db import IntegrityError, transaction
 import re
-
 
 User = get_user_model()
 
@@ -25,6 +23,7 @@ class GetTokenPairSerializer(serializers.Serializer):
             raise AuthenticationFailed("Email/Phone number and password are required.")
 
         # Determine if input is email or phone number
+        user = None
         if self.is_valid_email(email_or_phone):
             user = User.objects.filter(email=email_or_phone).first()
         elif self.is_valid_phone(email_or_phone):
@@ -38,13 +37,14 @@ class GetTokenPairSerializer(serializers.Serializer):
 
         # Generate refresh and access tokens
         refresh = RefreshToken.for_user(user)
+        refresh["role"] = user.role
+        refresh["is_dark"] = user.settings.is_dark if hasattr(user, 'settings') else False
+        refresh["email"] = user.email
+        refresh["username"] = user.username
 
         return {
             "refresh": str(refresh),
             "access": str(refresh.access_token),
-            "email": user.email,
-            "phone_number": user.phone_number,
-            "username": user.username,
         }
 
     @staticmethod
@@ -54,40 +54,8 @@ class GetTokenPairSerializer(serializers.Serializer):
 
     @staticmethod
     def is_valid_phone(phone_number):
-        """Validate phone number format for supported regions."""
-        # List of regions for English-speaking countries
-        countries = [
-            "US",
-            "GB",
-            "CA",
-            "AU",
-            "NZ",
-            "IE",
-            "ZA",
-            "IN",
-            "PH",
-            "SG",
-            "NG",
-            "KE",
-            "JM",
-            "TT",
-            "MT",
-            "BB",
-            "GH",
-            "PK",
-            "FJ",
-            "BZ",
-        ]
-
-        for region in countries:
-            try:
-                parsed_number = parse(phone_number, region)
-                if is_valid_number(parsed_number):
-                    return True
-            except NumberParseException:
-                continue
-
-        return False
+        """Validate phone number format."""
+        return re.match(r"^\+?1?\d{9,15}$", phone_number) is not None
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -102,11 +70,8 @@ class UserCreationSerializer(serializers.ModelSerializer):
         model = User
         fields = ["email", "phone_number", "password", "first_name", "last_name"]
         extra_kwargs = {
-<<<<<<< HEAD
             "email": {"required": False},
             "phone_number": {"required": False},
-=======
->>>>>>> b13c786 (chore: add tests)
             "password": {"write_only": True, "required": True},
             "first_name": {"required": True},
             "last_name": {"required": True},
@@ -115,7 +80,6 @@ class UserCreationSerializer(serializers.ModelSerializer):
     def validate(self, data):
         """
         Validate that at least one of `email` or `phone_number` is provided.
-        Validate phone number format and uniqueness.
         """
         errors = {}
 
@@ -144,42 +108,22 @@ class UserCreationSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def is_valid_phone(phone_number):
-        """Validate phone number format for supported regions."""
-        countries = [
-            "US", "GB", "CA", "AU", "NZ", "IE", "ZA", "IN", "PH", "SG", "NG",
-            "KE", "JM", "TT", "MT", "BB", "GH", "PK", "FJ", "BZ"
-        ]
-        for region in countries:
-            try:
-                parsed_number = parse(phone_number, region)
-                if is_valid_number(parsed_number):
-                    return True
-            except NumberParseException:
-                continue
-        return False
+        """Validate phone number format."""
+        import re
+        return re.match(r"^\+?1?\d{9,15}$", phone_number) is not None
 
     def create(self, validated_data):
         """
-        Create a new user instance with the provided data.
+        Create a new user instance with the validated data.
         """
-        try:
-            with transaction.atomic():
-                username = validated_data.get("email") or validated_data.get("phone_number")
-                user = User.objects.create_user(
-                    username=username,
-                    email=validated_data.get("email"),
-                    phone_number=validated_data.get("phone_number"),
-                    password=validated_data["password"],
-                    first_name=validated_data["first_name"],
-                    last_name=validated_data["last_name"],
-                )
-                return user
-        except IntegrityError as e:
-            if "username" in str(e):
-                raise serializers.ValidationError({"username": "A user with this username already exists."})
-            raise serializers.ValidationError({"non_field_error": "A database error occurred."})
-        except Exception as e:
-            raise serializers.ValidationError({"error": f"An unexpected error occurred: {str(e)}"})
+        return User.objects.create_user(
+            username=validated_data.get("email"),
+            email=validated_data.get("email"),
+            phone_number=validated_data.get("phone_number"),
+            password=validated_data["password"],
+            first_name=validated_data["first_name"],
+            last_name=validated_data["last_name"],
+        )
 
 
 class LoginSerializer(serializers.Serializer):

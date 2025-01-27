@@ -1,18 +1,51 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
+import uuid
 
 
 class AuthUser(AbstractUser):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        help_text="Unique ID for the user."
+    )
+    ROLE_CHOICES = [
+        ("admin", "Admin"),
+        ("service_provider", "Service Provider"),
+        ("client", "Client"),
+    ]
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default="client",
+        help_text="The role of the user."
+    )
     email = models.EmailField(unique=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True, unique=True)
     address = models.TextField(blank=True, null=True)
     country = models.CharField(max_length=2, blank=True, default="US")
     is_email_verified = models.BooleanField(default=False)
     is_phone_verified = models.BooleanField(default=False)
+    profile_picture = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Profile picture of the user."
+    )
+    bio = models.TextField(
+        blank=True,
+        null=True,
+        help_text="A brief biography or description about the user."
+    )
+    date_of_birth = models.DateField(blank=True, null=True, help_text="User's date of birth.")
+    is_active = models.BooleanField(default=True, help_text="Indicates if the user is active.")
+    is_staff = models.BooleanField(default=False, help_text="Indicates if the user is staff.")
+    is_superuser = models.BooleanField(default=False, help_text="Indicates if the user is a superuser.")
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["phone_number"]
+    REQUIRED_FIELDS = ["phone_number", "first_name", "last_name"]
 
     @property
     def is_verified(self):
@@ -23,6 +56,12 @@ class AuthUser(AbstractUser):
 
 
 class UserSettings(models.Model):
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        help_text="Unique ID for the user."
+    )
     PAYMENT_PREFERENCE_CHOICES = [
         ("platform", "Platform Payout"),
         ("stripe", "Stripe Payout"),

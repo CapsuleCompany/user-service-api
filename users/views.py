@@ -35,51 +35,20 @@ class UserCreationView(APIView):
         if serializer.is_valid():
             user = serializer.save()
 
-            try:
-                refresh = RefreshToken.for_user(user)
-                return Response(
-                    {
-                        "refresh": str(refresh),
-                        "access": str(refresh.access_token),
-                        "user": {
-                            "id": user.id,
-                            "email": user.email,
-                            "username": user.username,
-                        },
-                    },
-                    status=status.HTTP_201_CREATED,
-                )
-            except Exception as e:
-                return Response(
-                    {"error": f"Token generation failed: {str(e)}"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            refresh = RefreshToken.for_user(user)
+            refresh["role"] = user.role
+            refresh["is_dark"] = user.settings.is_dark if hasattr(user, 'settings') else False
+            refresh["email"] = user.email
+            refresh["username"] = user.username
 
-
-class LoginView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        serializer = LoginSerializer(data=request.data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-
-        user = serializer.validated_data["user"]
-
-        # Generate JWT tokens
-        refresh = RefreshToken.for_user(user)
-        return Response(
-            {
-                "refresh": str(refresh),
-                "access": str(refresh.access_token),
-                "user": {
-                    "id": user.id,
-                    "email": user.email,
-                    "phone_number": user.phone_number,
-                    "username": user.username,
+            return Response(
+                {
+                    "refresh": str(refresh),
+                    "access": str(refresh.access_token),
                 },
-            }
-        )
+                status=status.HTTP_201_CREATED,
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class LogoutView(APIView):
@@ -120,3 +89,23 @@ class LogoutView(APIView):
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = GetTokenPairSerializer
 
+    def post(self, request, *args, **kwargs):
+        """
+        Handle the login process and generate JWT tokens with custom claims.
+        """
+        serializer = self.get_serializer(data=request.data)
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        validated_data = serializer.validated_data
+
+        # Include the custom token data in the response
+        response_data = {
+            "refresh": validated_data["refresh"],
+            "access": validated_data["access"],
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)

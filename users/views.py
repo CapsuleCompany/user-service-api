@@ -3,12 +3,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from users.utils import generate_token_payload
 from rest_framework import status
 from .serializers import (
     UserSerializer,
     GetTokenPairSerializer,
     UserCreationSerializer,
-    LoginSerializer,
 )
 
 
@@ -33,23 +33,27 @@ class UserCreationView(APIView):
     def post(self, request):
         serializer = UserCreationSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
+            try:
+                user = serializer.save()
+                # Generate refresh and access tokens
+                refresh = generate_token_payload(user)
 
-            refresh = RefreshToken.for_user(user)
-            refresh["role"] = user.role
-            refresh["is_dark"] = user.settings.is_dark if hasattr(user, 'settings') else False
-            refresh["email"] = user.email
-            refresh["username"] = user.username
-
-            return Response(
-                {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
-                },
-                status=status.HTTP_201_CREATED,
-            )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+                return Response(
+                    {
+                        "refresh": str(refresh),
+                        "access": str(refresh.access_token),
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
+            except Exception as e:
+                return Response(
+                    {"error": f"User creation failed: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+        return Response(
+            {"errors": serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
@@ -86,7 +90,7 @@ class LogoutView(APIView):
             )
 
 
-class CustomTokenObtainPairView(TokenObtainPairView):
+class LoginView(TokenObtainPairView):
     serializer_class = GetTokenPairSerializer
 
     def post(self, request, *args, **kwargs):

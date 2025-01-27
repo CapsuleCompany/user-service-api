@@ -11,41 +11,44 @@ class AuthUser(AbstractUser):
         editable=False,
         help_text="Unique ID for the user."
     )
-    ROLE_CHOICES = [
-        ("admin", "Admin"),
-        ("service_provider", "Service Provider"),
-        ("client", "Client"),
-    ]
-    role = models.CharField(
-        max_length=20,
-        choices=ROLE_CHOICES,
-        default="client",
-        help_text="The role of the user."
-    )
     email = models.EmailField(unique=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True, unique=True)
     address = models.TextField(blank=True, null=True)
     country = models.CharField(max_length=2, blank=True, default="US")
+    profile_picture = models.URLField(blank=True, null=True, help_text="Profile picture URL.")
+    organization_id = models.UUIDField(
+        blank=True,
+        null=True,
+        help_text="Organization the user belongs to (if applicable)."
+    )
+    account_status = models.CharField(
+        max_length=50,
+        choices=[("active", "Active"), ("suspended", "Suspended"), ("inactive", "Inactive")],
+        default="active",
+        help_text="The status of the user's account."
+    )
+    role = models.CharField(
+        max_length=50,
+        choices=[("client", "Client"), ("admin", "Admin"), ("provider", "Provider")],
+        default="client",
+        help_text="The user's role in the system."
+    )
+    last_login = models.DateTimeField(blank=True, null=True, help_text="Last login timestamp.")
+    language = models.CharField(
+        max_length=10,
+        default="en",
+        help_text="Preferred language of the user (e.g., 'en', 'es')."
+    )
+    timezone = models.CharField(
+        max_length=50,
+        default="UTC",
+        help_text="User's timezone."
+    )
     is_email_verified = models.BooleanField(default=False)
     is_phone_verified = models.BooleanField(default=False)
-    profile_picture = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True,
-        help_text="Profile picture of the user."
-    )
-    bio = models.TextField(
-        blank=True,
-        null=True,
-        help_text="A brief biography or description about the user."
-    )
-    date_of_birth = models.DateField(blank=True, null=True, help_text="User's date of birth.")
-    is_active = models.BooleanField(default=True, help_text="Indicates if the user is active.")
-    is_staff = models.BooleanField(default=False, help_text="Indicates if the user is staff.")
-    is_superuser = models.BooleanField(default=False, help_text="Indicates if the user is a superuser.")
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["phone_number", "first_name", "last_name"]
+    REQUIRED_FIELDS = ["phone_number"]
 
     @property
     def is_verified(self):

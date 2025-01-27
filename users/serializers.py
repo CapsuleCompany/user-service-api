@@ -4,6 +4,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from phonenumbers import parse, is_valid_number, NumberParseException
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
+from users.utils import generate_token_payload
 import re
 
 User = get_user_model()
@@ -36,11 +37,7 @@ class GetTokenPairSerializer(serializers.Serializer):
             raise AuthenticationFailed("Invalid credentials")
 
         # Generate refresh and access tokens
-        refresh = RefreshToken.for_user(user)
-        refresh["role"] = user.role
-        refresh["is_dark"] = user.settings.is_dark if hasattr(user, 'settings') else False
-        refresh["email"] = user.email
-        refresh["username"] = user.username
+        refresh = generate_token_payload(user)
 
         return {
             "refresh": str(refresh),

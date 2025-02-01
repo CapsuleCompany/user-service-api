@@ -3,13 +3,18 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from users.utils import generate_token_payload
+from .utils import generate_token_payload
+from django.contrib.auth import get_user_model
+from django.conf import settings
+from django.db.models import Q
 from rest_framework import status
 from .serializers import (
     UserSerializer,
     GetTokenPairSerializer,
     UserCreationSerializer,
 )
+
+User = get_user_model()
 
 
 class UserProfileView(APIView):
@@ -19,11 +24,15 @@ class UserProfileView(APIView):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
 
-    def patch(self, request):
-        serializer = UserSerializer(request.user, data=request.data, partial=True)
+    def put(self, request):
+        """Fully update user profile (all fields required)."""
+        user = request.user
+        serializer = UserSerializer(user, data=request.data)
+
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -54,6 +63,7 @@ class UserCreationView(APIView):
             {"errors": serializer.errors},
             status=status.HTTP_400_BAD_REQUEST
         )
+
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
@@ -113,3 +123,42 @@ class LoginView(TokenObtainPairView):
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+class RetrieveUserView(APIView):
+    """
+    Retrieve a user by email, UUID, or phone number.
+    This endpoint is only available in DEBUG mode.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        if not settings.DEBUG:
+            return Response(
+                {"error": "This endpoint is only available in DEBUG mode."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        email = request.data.get("email")
+        uuid = request.data.get("uuid")
+        phone = request.data.get("phone")
+
+        if not any([email, uuid, phone]):
+            return Response(
+                {"error": "You must provide an email, uuid, or phone number."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        filters = Q()
+        if email:
+            filters |= Q(email=email)
+        if uuid:
+            filters |= Q(id=uuid)
+        if phone:
+            filters |= Q(phone=phone)
+
+        user = User.objects.filter(filters).first()
+        if not user:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = UserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)

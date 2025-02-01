@@ -4,7 +4,8 @@ from rest_framework.exceptions import AuthenticationFailed
 from phonenumbers import parse, is_valid_number, NumberParseException
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
-from users.utils import generate_token_payload
+from .utils import generate_token_payload
+from .models import UserSettings
 import re
 
 User = get_user_model()
@@ -55,11 +56,33 @@ class GetTokenPairSerializer(serializers.Serializer):
         return re.match(r"^\+?1?\d{9,15}$", phone_number) is not None
 
 
+class UserSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserSettings
+        exclude = ["created_at", "updated_at"]
+        read_only_fields = ["id", "user"]
+
+
 class UserSerializer(serializers.ModelSerializer):
+    settings = UserSettingsSerializer()
+
     class Meta:
         model = User
-        fields = ["id", "email", "phone_number", "address"]
+        fields = ["id", "email", "phone_number", "settings"]
         read_only_fields = ["id"]
+
+    def update(self, instance, validated_data):
+        settings_data = validated_data.pop('settings', None)
+        if settings_data:
+            settings_instance = instance.settings
+            for attr, value in settings_data.items():
+                setattr(settings_instance, attr, value)
+            settings_instance.save()
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
 
 
 class UserCreationSerializer(serializers.ModelSerializer):

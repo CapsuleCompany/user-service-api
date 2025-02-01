@@ -2,6 +2,10 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.conf import settings
 import uuid
+from .assets.choices import (LANGUAGE_CHOICES, TIMEZONE_CHOICES, ACCOUNT_STATUS_CHOICES,
+                             COUNTRY_CHOICES, ROLE_CHOICES, PAYOUT_FREQUENCY_CHOICES,
+                             PAYMENT_ACCOUNT_TYPE_CHOICES, PAYMENT_PREFERENCE_CHOICES,
+                             validate_choice)
 
 
 class AuthUser(AbstractUser):
@@ -14,7 +18,13 @@ class AuthUser(AbstractUser):
     email = models.EmailField(unique=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True, unique=True)
     address = models.TextField(blank=True, null=True)
-    country = models.CharField(max_length=2, blank=True, default="US")
+    country = models.CharField(
+        max_length=2,
+        blank=True,
+        choices=COUNTRY_CHOICES,
+        validators=[lambda value: validate_choice(value, COUNTRY_CHOICES)],
+        default="US"
+    )
     profile_picture = models.URLField(blank=True, null=True, help_text="Profile picture URL.")
     organization_id = models.UUIDField(
         blank=True,
@@ -23,25 +33,31 @@ class AuthUser(AbstractUser):
     )
     account_status = models.CharField(
         max_length=50,
-        choices=[("active", "Active"), ("suspended", "Suspended"), ("inactive", "Inactive")],
+        choices=ACCOUNT_STATUS_CHOICES,
         default="active",
+        validators=[lambda value: validate_choice(value, ACCOUNT_STATUS_CHOICES)],
         help_text="The status of the user's account."
     )
     role = models.CharField(
         max_length=50,
-        choices=[("client", "Client"), ("admin", "Admin"), ("provider", "Provider")],
+        choices=ROLE_CHOICES,
         default="client",
+        validators=[lambda value: validate_choice(value, ROLE_CHOICES)],
         help_text="The user's role in the system."
     )
     last_login = models.DateTimeField(blank=True, null=True, help_text="Last login timestamp.")
     language = models.CharField(
         max_length=10,
+        choices=LANGUAGE_CHOICES,
         default="en",
+        validators=[lambda value: validate_choice(value, LANGUAGE_CHOICES)],
         help_text="Preferred language of the user (e.g., 'en', 'es')."
     )
     timezone = models.CharField(
         max_length=50,
         default="UTC",
+        choices=TIMEZONE_CHOICES,
+        validators=[lambda value: validate_choice(value, TIMEZONE_CHOICES)],
         help_text="User's timezone."
     )
     is_email_verified = models.BooleanField(default=False)
@@ -54,6 +70,14 @@ class AuthUser(AbstractUser):
     def is_verified(self):
         return self.is_email_verified and self.is_phone_verified
 
+    def clean(self):
+        """Ensure validation of user before saving."""
+        validate_choice(self.country, COUNTRY_CHOICES)
+        validate_choice(self.account_status, ACCOUNT_STATUS_CHOICES)
+        validate_choice(self.role, ROLE_CHOICES)
+        validate_choice(self.language, LANGUAGE_CHOICES)
+        validate_choice(self.timezone, TIMEZONE_CHOICES)
+
     def __str__(self):
         return self.email
 
@@ -65,10 +89,7 @@ class UserSettings(models.Model):
         editable=False,
         help_text="Unique ID for the user."
     )
-    PAYMENT_PREFERENCE_CHOICES = [
-        ("platform", "Platform Payout"),
-        ("stripe", "Stripe Payout"),
-    ]
+
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
@@ -78,13 +99,15 @@ class UserSettings(models.Model):
     )
 
     # General Settings
-    dark_mode = models.BooleanField(
+    is_dark = models.BooleanField(
         default=False,
         help_text="Enable or disable dark mode for the user."
     )
     language = models.CharField(
         max_length=10,
         default="en",
+        choices=LANGUAGE_CHOICES,
+        validators=[lambda value: validate_choice(value, LANGUAGE_CHOICES)],
         help_text="Preferred language of the user (e.g., 'en', 'es')."
     )
 
@@ -107,6 +130,7 @@ class UserSettings(models.Model):
         max_length=50,
         choices=PAYMENT_PREFERENCE_CHOICES,
         default="platform",
+        validators=[lambda value: validate_choice(value, PAYMENT_PREFERENCE_CHOICES)],
         help_text="Preferred payout method ('platform' or 'stripe')."
     )
     default_payment_method = models.CharField(
@@ -152,20 +176,15 @@ class UserSettings(models.Model):
     )
     bank_account_holder_type = models.CharField(
         max_length=50,
-        choices=[
-            ("individual", "Individual"),
-            ("company", "Company"),
-        ],
+        choices=PAYMENT_ACCOUNT_TYPE_CHOICES,
         blank=True,
+        validators=[lambda value: validate_choice(value, PAYMENT_ACCOUNT_TYPE_CHOICES)],
         help_text="Type of account holder (individual or company)."
     )
     payout_frequency = models.CharField(
         max_length=50,
-        choices=[
-            ("daily", "Daily"),
-            ("weekly", "Weekly"),
-            ("monthly", "Monthly"),
-        ],
+        choices=PAYOUT_FREQUENCY_CHOICES,
+        validators=[lambda value: validate_choice(value, PAYOUT_FREQUENCY_CHOICES)],
         default="weekly",
         help_text="Preferred payout frequency."
     )
@@ -173,6 +192,13 @@ class UserSettings(models.Model):
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        """Ensure validation of settings before saving."""
+        validate_choice(self.language, LANGUAGE_CHOICES)
+        validate_choice(self.payment_preference, PAYMENT_PREFERENCE_CHOICES)
+        validate_choice(self.payout_frequency, PAYOUT_FREQUENCY_CHOICES)
+        validate_choice(self.bank_account_holder_type, PAYMENT_ACCOUNT_TYPE_CHOICES)
 
     def __str__(self):
         return f"Settings for {self.user.email}"

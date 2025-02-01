@@ -5,6 +5,7 @@ from .views import (
     UserCreationView,
     LoginView,
     LogoutView,
+    RetrieveUserView,
 )
 
 urlpatterns = [
@@ -13,4 +14,5 @@ urlpatterns = [
     path("profile/", UserProfileView.as_view(), name="user_profile"),
     path("register/", UserCreationView.as_view(), name="user_create"),
     path("logout/", LogoutView.as_view(), name="logout"),
+    path("users/retrieve/", RetrieveUserView.as_view(), name="user_retrieve"),  # New route
 ]

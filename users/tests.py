@@ -46,7 +46,7 @@ class UserCreationTests(APITestCase):
             username=self.valid_data["email"],
             email=self.valid_data["email"],
             phone_number="+0987654321",
-            password="password123"
+            password="password123",
         )
         response = self.client.post(self.url, self.valid_data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -58,7 +58,7 @@ class UserCreationTests(APITestCase):
             username="uniqueuser",
             email="unique@example.com",
             phone_number=self.valid_data["phone_number"],
-            password="password123"
+            password="password123",
         )
         response = self.client.post(self.url, self.valid_data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

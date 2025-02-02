@@ -6,12 +6,15 @@ from users.models import AuthUser, UserSettings
 UserSettings.objects.all().delete()
 AuthUser.objects.all().delete()
 
+
 class Command(BaseCommand):
     help = "Creates a test user if DEBUG=True"
 
     def handle(self, *args, **kwargs):
         if not settings.DEBUG:
-            self.stdout.write(self.style.ERROR("DEBUG mode is OFF. Skipping test user creation."))
+            self.stdout.write(
+                self.style.ERROR("DEBUG mode is OFF. Skipping test user creation.")
+            )
             return
 
         email = "ccrowder@capsuleio.com"
@@ -38,4 +41,6 @@ class Command(BaseCommand):
 
         UserSettings.objects.create(user=user)
 
-        self.stdout.write(self.style.SUCCESS(f"Test user {email} created successfully!"))
+        self.stdout.write(
+            self.style.SUCCESS(f"Test user {email} created successfully!")
+        )

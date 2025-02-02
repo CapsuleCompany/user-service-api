@@ -5,7 +5,9 @@ def validate_choice(value, choices):
     """Ensure the value exists in the defined choices."""
     valid_values = {choice[0] for choice in choices}
     if value not in valid_values:
-        raise ValidationError(f"Invalid choice: {value}. Allowed values: {valid_values}")
+        raise ValidationError(
+            f"Invalid choice: {value}. Allowed values: {valid_values}"
+        )
 
 
 # Payment Frequency Choices

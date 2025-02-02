@@ -8,7 +8,9 @@ class UsersConfig(AppConfig):
     name = "users"
 
     def ready(self):
+        import users.signals
         pre_migrate.connect(create_schema, sender=self)
+
 
 def create_schema(sender, **kwargs):
     schema_name = "users_api"

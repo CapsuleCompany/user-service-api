@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
@@ -10,9 +11,12 @@ from django.db.models import Q
 from rest_framework import status
 from .serializers import (
     UserSerializer,
+    UserSettingsSerializer,
     GetTokenPairSerializer,
     UserCreationSerializer,
 )
+from .models import UserSettings
+
 
 User = get_user_model()
 
@@ -34,6 +38,37 @@ class UserProfileView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class UserSettingsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            settings = UserSettings.objects.get(user=request.user)
+            serializer = UserSettingsSerializer(settings)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except UserSettings.DoesNotExist:
+            return Response(
+                {"error": "User settings not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+    def put(self, request):
+        """Allow both partial and full updates."""
+        try:
+            settings = UserSettings.objects.get(user=request.user)
+            serializer = UserSettingsSerializer(settings, data=request.data, partial=True)
+
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except UserSettings.DoesNotExist:
+            return Response(
+                {"error": "User settings not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
 
 class UserCreationView(APIView):
@@ -60,8 +95,7 @@ class UserCreationView(APIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         return Response(
-            {"errors": serializer.errors},
-            status=status.HTTP_400_BAD_REQUEST
+            {"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST
         )
 
 
@@ -116,7 +150,10 @@ class LoginView(TokenObtainPairView):
 
         validated_data = serializer.validated_data
 
-        # Include the custom token data in the response
+        user = validated_data["user"]
+        user.last_login = timezone.now()
+        user.save(update_fields=["last_login"])
+
         response_data = {
             "refresh": validated_data["refresh"],
             "access": validated_data["access"],
@@ -130,6 +167,7 @@ class RetrieveUserView(APIView):
     Retrieve a user by email, UUID, or phone number.
     This endpoint is only available in DEBUG mode.
     """
+
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -159,6 +197,8 @@ class RetrieveUserView(APIView):
 
         user = User.objects.filter(filters).first()
         if not user:
-            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
         serializer = UserSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)

@@ -6,13 +6,15 @@ from .views import (
     LoginView,
     LogoutView,
     RetrieveUserView,
+    UserSettingsView
 )
 
 urlpatterns = [
     path("token/", LoginView.as_view(), name="login"),
-    path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("profile/", UserProfileView.as_view(), name="user_profile"),
-    path("register/", UserCreationView.as_view(), name="user_create"),
+    path("token/refresh/", TokenRefreshView.as_view(), name="refresh"),
+    path("profile/", UserProfileView.as_view(), name="profile"),
+    path("profile/settings/", UserSettingsView.as_view(), name="settings"),
+    path("register/", UserCreationView.as_view(), name="create"),
     path("logout/", LogoutView.as_view(), name="logout"),
-    path("users/retrieve/", RetrieveUserView.as_view(), name="user_retrieve"),  # New route
+    path("users/retrieve/", RetrieveUserView.as_view(), name="retrieve"),
 ]

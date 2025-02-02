@@ -1,9 +1,7 @@
 from django.contrib.auth import authenticate, get_user_model
 from django.utils.translation import gettext_lazy as _
 from rest_framework.exceptions import AuthenticationFailed
-from phonenumbers import parse, is_valid_number, NumberParseException
 from rest_framework import serializers
-from rest_framework_simplejwt.tokens import RefreshToken
 from .utils import generate_token_payload
 from .models import UserSettings
 import re
@@ -43,6 +41,7 @@ class GetTokenPairSerializer(serializers.Serializer):
         return {
             "refresh": str(refresh),
             "access": str(refresh.access_token),
+            "user": user,
         }
 
     @staticmethod
@@ -59,20 +58,26 @@ class GetTokenPairSerializer(serializers.Serializer):
 class UserSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserSettings
-        exclude = ["created_at", "updated_at"]
-        read_only_fields = ["id", "user"]
+        exclude = ["updated_at"]
 
 
 class UserSerializer(serializers.ModelSerializer):
-    settings = UserSettingsSerializer()
+    # settings = UserSettingsSerializer()
 
     class Meta:
         model = User
-        fields = ["id", "email", "phone_number", "settings"]
+        exclude = [
+            "password",
+            "is_staff",
+            "username",
+            "timezone",
+            "groups",
+            "user_permissions",
+        ]
         read_only_fields = ["id"]
 
     def update(self, instance, validated_data):
-        settings_data = validated_data.pop('settings', None)
+        settings_data = validated_data.pop("settings", None)
         if settings_data:
             settings_instance = instance.settings
             for attr, value in settings_data.items():
@@ -130,6 +135,7 @@ class UserCreationSerializer(serializers.ModelSerializer):
     def is_valid_phone(phone_number):
         """Validate phone number format."""
         import re
+
         return re.match(r"^\+?1?\d{9,15}$", phone_number) is not None
 
     def create(self, validated_data):
@@ -145,31 +151,3 @@ class UserCreationSerializer(serializers.ModelSerializer):
             last_name=validated_data["last_name"],
         )
 
-
-class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField(label=_("Email or Phone"), required=True)
-    password = serializers.CharField(
-        label=_("Password"), style={"input_type": "password"}, trim_whitespace=False
-    )
-
-    def validate(self, attrs):
-        username = attrs.get("username")
-        password = attrs.get("password")
-
-        if username and password:
-            user = authenticate(
-                request=self.context.get("request"),
-                username=username,
-                password=password,
-            )
-            if not user:
-                raise serializers.ValidationError(
-                    _("Invalid credentials"), code="authorization"
-                )
-        else:
-            raise serializers.ValidationError(
-                _("Must include 'username' and 'password'"), code="authorization"
-            )
-
-        attrs["user"] = user
-        return attrs

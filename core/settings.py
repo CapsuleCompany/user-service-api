@@ -45,9 +45,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "users.authentication.CustomJWTAuthentication"
-    ],
+    "DEFAULT_AUTHENTICATION_CLASSES": ["users.authentication.CustomJWTAuthentication"],
 }
 
 # JWT settings
@@ -76,9 +74,7 @@ DATABASES = {
         "PASSWORD": env.str("POSTGRES_PASSWORD", default="password"),
         "HOST": env.str("POSTGRES_HOST", default="localhost"),
         "PORT": env.int("POSTGRES_PORT", default=5432),
-        "OPTIONS": {
-            "options": "-c search_path=users_api"
-        },
+        "OPTIONS": {"options": "-c search_path=users_api"},
     }
 }
 

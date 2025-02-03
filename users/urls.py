@@ -19,4 +19,5 @@ urlpatterns = [
     path("logout/", LogoutView.as_view(), name="logout"),
     path("users/retrieve/", RetrieveUserView.as_view(), name="retrieve"),
     path("users/tenant/", UserTenantView.as_view(), name="tenant"),
+    path("users/tenant/<str:tenant_id>/", UserTenantView.as_view(), name="user-tenant-detail"),
 ]

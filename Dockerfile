@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update && apt-get install -y \
     python3.12 python3.12-dev libpq-dev build-essential \
+    && apt-get install -y libdbus-1-dev dbus dbus-x11 libgirepository1.0-dev gobject-introspection \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -26,7 +27,10 @@ WORKDIR /app
 
 # Install Python dependencies
 COPY requirements.txt /app/
-RUN python3.12 -m pip install --upgrade pip && python3.12 -m pip install -r requirements.txt
+
+RUN python3.12 -m pip install --upgrade pip setuptools wheel \
+    && python3.12 -m pip install kafka-python-ng six --no-cache-dir \
+    && python3.12 -m pip install -r requirements.txt
 
 # Copy application code
 COPY . /app/

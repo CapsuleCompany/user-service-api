@@ -94,3 +94,6 @@ USE_TZ = True
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+KAFKA_TOPIC = env.str("KAFKA_TOPIC", default="default_topic")
+KAFKA_SERVERS = env.list("KAFKA_SERVERS", default=["kafka:9092"])

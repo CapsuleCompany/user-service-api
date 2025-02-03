@@ -250,12 +250,12 @@ class UserTenantView(APIView):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    def delete(self, request):
+    def delete(self, request, tenant_id=None):
         """
         Removes the user from one or more tenants.
-        Expects a `tenant_id` or a list of `tenant_ids` in the request data.
+        Expects a `tenant_id` in the URL or a `tenant_id` / list of `tenant_ids` in the request data.
         """
-        tenant_ids = request.data.get("tenant_id") or request.data.get("tenant_ids")
+        tenant_ids = [tenant_id] if tenant_id else request.data.get("tenant_id") or request.data.get("tenant_ids")
 
         if not tenant_ids:
             return Response(
@@ -266,7 +266,7 @@ class UserTenantView(APIView):
         if isinstance(tenant_ids, str):
             tenant_ids = [tenant_ids]
 
-        deleted_count, _ = UserOrganization.objects.filter(user=request.user, tenant_id__in=tenant_ids).delete()
+        deleted_count, _ = UserOrganization.objects.filter(tenant_id__in=tenant_ids).delete()
 
         if deleted_count == 0:
             return Response(

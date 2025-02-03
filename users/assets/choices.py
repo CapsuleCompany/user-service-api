@@ -36,13 +36,6 @@ ROLE_CHOICES = [
     ("provider", "Provider"),
 ]
 
-ACCOUNT_STATUS_CHOICES = [
-    ("active", "Active"),
-    ("inactive", "Inactive"),
-    ("suspended", "Suspended"),
-    ("deleted", "Deleted"),
-]
-
 # Language Choices
 LANGUAGE_CHOICES = [
     ("en", "English"),

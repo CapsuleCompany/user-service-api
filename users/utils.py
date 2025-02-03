@@ -71,11 +71,14 @@ def generate_token_payload(user):
     refresh["email"] = user.email
     refresh["first_name"] = user.first_name
     refresh["last_name"] = user.last_name
-    refresh["tenant_id"] = str(user.organization_id) if user.organization_id else None
-    refresh["account_status"] = user.account_status
+    refresh["tenant_id"] = [str(user.organization_id) if user.organization_id else None]
     refresh["profile_picture"] = user.profile_picture
     refresh["language"] = settings.language if settings else user.language
     refresh["timezone"] = user.timezone
     refresh["is_verified"] = user.is_verified
     refresh["last_login"] = user.last_login.isoformat() if user.last_login else None
+    refresh["is_active"] = user.is_active
+    refresh["is_superuser"] = user.is_superuser
+    # tenant_roles = UserOrganization.objects.filter(user=user).values("tenant_id", "role")
+    # refresh["tenants"] = list(tenant_roles)
     return refresh

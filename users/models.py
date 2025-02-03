@@ -1,11 +1,9 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.conf import settings
 import uuid
 from .assets.choices import (
     LANGUAGE_CHOICES,
     TIMEZONE_CHOICES,
-    ACCOUNT_STATUS_CHOICES,
     COUNTRY_CHOICES,
     ROLE_CHOICES,
     PAYOUT_FREQUENCY_CHOICES,
@@ -13,18 +11,6 @@ from .assets.choices import (
     PAYMENT_PREFERENCE_CHOICES,
     validate_choice,
 )
-
-
-class Organization(models.Model):
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False,
-    )
-
-    class Meta:
-        db_table = "Organization"
-
 
 class AuthUser(AbstractUser):
     id = models.UUIDField(
@@ -45,20 +31,6 @@ class AuthUser(AbstractUser):
     )
     profile_picture = models.URLField(
         blank=True, null=True, help_text="Profile picture URL."
-    )
-    organization_id = models.ForeignKey(
-        Organization,
-        on_delete=models.CASCADE,
-        blank=True,
-        null=True,
-        help_text="Organization the user belongs to (if applicable).",
-    )
-    account_status = models.CharField(
-        max_length=50,
-        choices=ACCOUNT_STATUS_CHOICES,
-        default="active",
-        # validators=[lambda value: validate_choice(value, ACCOUNT_STATUS_CHOICES)],
-        help_text="The status of the user's account.",
     )
     role = models.CharField(
         max_length=50,
@@ -122,14 +94,6 @@ class UserSettings(models.Model):
         related_name="settings",
         null=False,
         help_text="The user these settings belong to.",
-    )
-    organization = models.ForeignKey(
-        Organization,
-        on_delete=models.CASCADE,
-        related_name="user_settings",
-        help_text="The organization these settings apply to.",
-        null=True,
-        blank=True
     )
 
     # General Settings
@@ -228,3 +192,20 @@ class UserSettings(models.Model):
 
     def __str__(self):
         return f"Settings for {self.user.email}"
+
+
+class UserOrganization(models.Model):
+    """
+    Links users to multiple organizations (tenants).
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey("AuthUser", on_delete=models.CASCADE, related_name="organizations")
+    tenant_id = models.UUIDField(help_text="Tenant ID from the Tenant Service")
+    # role = models.CharField(max_length=50, help_text="User's role within this tenant.")
+
+    class Meta:
+        db_table = "UserOrganizations"
+        unique_together = ("user", "tenant_id")
+
+    def __str__(self):
+        return f"{self.user.email} - {self.tenant_id}"

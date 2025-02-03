@@ -3,7 +3,7 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework import serializers
 from .utils import generate_token_payload
-from .models import UserSettings
+from .models import UserSettings, UserOrganization
 import re
 
 User = get_user_model()
@@ -76,6 +76,10 @@ class UserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id"]
 
+    def to_internal_value(self, data):
+        validated_data = super().to_internal_value(data)
+        return validated_data
+
     def update(self, instance, validated_data):
         settings_data = validated_data.pop("settings", None)
         if settings_data:
@@ -83,7 +87,6 @@ class UserSerializer(serializers.ModelSerializer):
             for attr, value in settings_data.items():
                 setattr(settings_instance, attr, value)
             settings_instance.save()
-
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
@@ -151,3 +154,20 @@ class UserCreationSerializer(serializers.ModelSerializer):
             last_name=validated_data["last_name"],
         )
 
+
+class UserTenantSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserOrganization
+        fields = "__all__"
+
+    def to_internal_value(self, data):
+        validated_data = super().to_internal_value(data)
+        return validated_data
+
+    def update(self, instance, validated_data):
+        instance.save()
+        return instance
+
+    def create(self, validated_data):
+        user_org = UserOrganization.objects.create(**validated_data)
+        return user_org

@@ -6,33 +6,30 @@ ENV TZ=Etc/UTC
 
 # Install system dependencies and Python 3.12
 RUN apt-get update && apt-get install -y \
-    software-properties-common wget \
+    software-properties-common wget curl build-essential \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update && apt-get install -y \
-    python3.12 python3.12-dev libpq-dev build-essential \
-    && apt-get install -y libdbus-1-dev dbus dbus-x11 libgirepository1.0-dev gobject-introspection \
+    python3.12 python3.12-dev libpq-dev \
+    libdbus-1-dev dbus dbus-x11 libgirepository1.0-dev gobject-introspection \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install pip manually using get-pip.py
-RUN wget https://bootstrap.pypa.io/get-pip.py && python3.12 get-pip.py && rm get-pip.py
-
-# Set up aliases for convenience
-RUN echo "alias python=python3.12" >> ~/.bashrc && \
-    echo "alias makemigrations='python manage.py makemigrations'" >> ~/.bashrc && \
-    echo "alias migrate='python manage.py migrate'" >> ~/.bashrc
+# Install Poetry
+RUN curl -sSL https://install.python-poetry.org | python3.12 - \
+    && echo "export PATH=$HOME/.local/bin:$PATH" >> ~/.bashrc
 
 # Set working directory
 WORKDIR /app
 
-# Install Python dependencies
-COPY requirements.txt /app/
+# Copy dependency files first for better caching
+COPY pyproject.toml poetry.lock /app/
 
-RUN python3.12 -m pip install --upgrade pip setuptools wheel \
-    && python3.12 -m pip install kafka-python-ng six --no-cache-dir \
-    && python3.12 -m pip install -r requirements.txt
+# Install dependencies using Poetry
+RUN export PATH=$HOME/.local/bin:$PATH && \
+    poetry config virtualenvs.create false && \
+    poetry install --no-root --no-interaction --no-ansi
 
-# Copy application code
+# Copy the rest of the application code
 COPY . /app/
 
 # Expose port
@@ -41,5 +38,5 @@ EXPOSE 8000
 # Run the application
 CMD ["python3.12", "manage.py", "runserver", "0.0.0.0:8000"]
 
-# Set the default shell to bash to ensure aliases work
+# Set the default shell to bash
 SHELL ["/bin/bash", "-c"]

@@ -1,5 +1,4 @@
-from django.contrib.auth import authenticate, get_user_model
-from django.utils.translation import gettext_lazy as _
+from django.contrib.auth import get_user_model
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework import serializers
 from .utils import generate_token_payload
@@ -23,7 +22,6 @@ class GetTokenPairSerializer(serializers.Serializer):
             raise AuthenticationFailed("Email/Phone number and password are required.")
 
         # Determine if input is email or phone number
-        user = None
         if self.is_valid_email(email_or_phone):
             user = User.objects.filter(email=email_or_phone).first()
         elif self.is_valid_phone(email_or_phone):
@@ -31,11 +29,9 @@ class GetTokenPairSerializer(serializers.Serializer):
         else:
             raise AuthenticationFailed("Invalid email or phone number format.")
 
-        # Check if user exists and password is correct
         if user is None or not user.check_password(password):
             raise AuthenticationFailed("Invalid credentials")
 
-        # Generate refresh and access tokens
         refresh = generate_token_payload(user)
 
         return {
@@ -59,38 +55,6 @@ class UserSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserSettings
         exclude = ["updated_at"]
-
-
-class UserSerializer(serializers.ModelSerializer):
-    # settings = UserSettingsSerializer()
-
-    class Meta:
-        model = User
-        exclude = [
-            "password",
-            "is_staff",
-            "username",
-            "timezone",
-            "groups",
-            "user_permissions",
-        ]
-        read_only_fields = ["id"]
-
-    def to_internal_value(self, data):
-        validated_data = super().to_internal_value(data)
-        return validated_data
-
-    def update(self, instance, validated_data):
-        settings_data = validated_data.pop("settings", None)
-        if settings_data:
-            settings_instance = instance.settings
-            for attr, value in settings_data.items():
-                setattr(settings_instance, attr, value)
-            settings_instance.save()
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        return instance
 
 
 class UserCreationSerializer(serializers.ModelSerializer):
@@ -158,7 +122,7 @@ class UserCreationSerializer(serializers.ModelSerializer):
 class UserTenantSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserOrganization
-        fields = "__all__"
+        fields = '__all__'
 
     def to_internal_value(self, data):
         validated_data = super().to_internal_value(data)
@@ -171,3 +135,33 @@ class UserTenantSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user_org = UserOrganization.objects.create(**validated_data)
         return user_org
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        exclude = [
+            "password",
+            "is_staff",
+            "username",
+            "timezone",
+            "groups",
+            "user_permissions",
+        ]
+        read_only_fields = ["id"]
+
+    def to_internal_value(self, data):
+        validated_data = super().to_internal_value(data)
+        return validated_data
+
+    def update(self, instance, validated_data):
+        settings_data = validated_data.pop("settings", None)
+        if settings_data:
+            settings_instance = instance.settings
+            for attr, value in settings_data.items():
+                setattr(settings_instance, attr, value)
+            settings_instance.save()
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance

@@ -29,6 +29,8 @@ class Command(BaseCommand):
         user = AuthUser.objects.create(
             email=email,
             role="admin",
+            is_staff=True,
+            is_superuser=True,
             username=email,
             phone_number=phone_number,
             first_name=full_name.split()[0],

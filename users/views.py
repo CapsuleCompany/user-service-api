@@ -1,6 +1,7 @@
 from django.utils import timezone
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework import generics, permissions, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -37,7 +38,6 @@ class UserProfileView(APIView):
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
-        print('-here-')
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -143,14 +143,12 @@ class LoginView(TokenObtainPairView):
         Handle the login process and generate JWT tokens with custom claims.
         """
         serializer = self.get_serializer(data=request.data)
-
         try:
             serializer.is_valid(raise_exception=True)
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         validated_data = serializer.validated_data
-
         user = validated_data["user"]
         user.last_login = timezone.now()
         user.save(update_fields=["last_login"])
@@ -240,7 +238,7 @@ class UserTenantView(APIView):
         """
         Adds a user to a tenant.
         """
-        serializer = UserTenantSerializer(data=request.data)
+        serializer = UserTenantSerializer(data=request.data, context=request.user)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -278,3 +276,12 @@ class UserTenantView(APIView):
             {"message": f"Successfully removed {deleted_count} tenant(s)"},
             status=status.HTTP_200_OK,
         )
+
+
+class UserViewSet(viewsets.ModelViewSet):
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+    def get_queryset(self):
+        return User.objects.all()
+

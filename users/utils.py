@@ -43,7 +43,6 @@ Example Usage:
     token = generate_token_payload(user)
     print(str(token))  # Outputs the generated JWT as a string.
 """
-
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import UserSettings
 
@@ -54,24 +53,24 @@ def get_user_settings(user):
     If the user belongs to an organization, return the organization's settings.
     Otherwise, return the user's personal settings.
     """
-    if user.organization_id:
-        settings = UserSettings.objects.filter(user=user, organization=user.organization_id).first()
+    if user:
+        settings = UserSettings.objects.filter(user=user).first()
     else:
-        settings = UserSettings.objects.filter(user=user, organization=None).first()
+        settings = UserSettings.objects.filter(user=user).first()
 
-    return settings or UserSettings.objects.create(user=user, organization=user.organization_id)
+    return settings or UserSettings.objects.create(user=user)
 
 
 def generate_token_payload(user):
     refresh = RefreshToken.for_user(user)
     settings = get_user_settings(user)
+    organizations = user.organizations.all()
 
     refresh["role"] = user.role
     refresh["is_dark"] = settings.is_dark if settings else False
     refresh["email"] = user.email
     refresh["first_name"] = user.first_name
     refresh["last_name"] = user.last_name
-    refresh["tenant_id"] = [str(user.organization_id) if user.organization_id else None]
     refresh["profile_picture"] = user.profile_picture
     refresh["language"] = settings.language if settings else user.language
     refresh["timezone"] = user.timezone
@@ -79,6 +78,5 @@ def generate_token_payload(user):
     refresh["last_login"] = user.last_login.isoformat() if user.last_login else None
     refresh["is_active"] = user.is_active
     refresh["is_superuser"] = user.is_superuser
-    # tenant_roles = UserOrganization.objects.filter(user=user).values("tenant_id", "role")
-    # refresh["tenants"] = list(tenant_roles)
+    refresh["tenants"] = [str(tenant_id) for tenant_id in organizations.values_list("tenant_id", flat=True)]
     return refresh

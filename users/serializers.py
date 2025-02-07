@@ -51,12 +51,6 @@ class GetTokenPairSerializer(serializers.Serializer):
         return re.match(r"^\+?1?\d{9,15}$", phone_number) is not None
 
 
-class UserSettingsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserSettings
-        exclude = ["updated_at"]
-
-
 class UserCreationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -165,3 +159,9 @@ class UserSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         return instance
+
+
+class UserSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserSettings
+        exclude = ["updated_at"]

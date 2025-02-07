@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 import uuid
+from common.models import BaseModel
 from .assets.choices import (
     LANGUAGE_CHOICES,
     TIMEZONE_CHOICES,
@@ -21,33 +22,11 @@ class AuthUser(AbstractUser):
     )
     email = models.EmailField(unique=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True, unique=True)
-    address = models.TextField(blank=True, null=True)
-    country = models.CharField(
-        max_length=2,
-        blank=True,
-        choices=COUNTRY_CHOICES,
-        # validators=[lambda value: validate_choice(value, COUNTRY_CHOICES)],
-        default="US",
-    )
     profile_picture = models.URLField(
         blank=True, null=True, help_text="Profile picture URL."
     )
-    role = models.CharField(
-        max_length=50,
-        choices=ROLE_CHOICES,
-        default="client",
-        # validators=[lambda value: validate_choice(value, ROLE_CHOICES)],
-        help_text="The user's role in the system.",
-    )
     last_login = models.DateTimeField(
         blank=True, null=True, help_text="Last login timestamp."
-    )
-    language = models.CharField(
-        max_length=10,
-        choices=LANGUAGE_CHOICES,
-        default="en",
-        # validators=[lambda value: validate_choice(value, LANGUAGE_CHOICES)],
-        help_text="Preferred language of the user (e.g., 'en', 'es').",
     )
     timezone = models.CharField(
         max_length=50,
@@ -81,13 +60,7 @@ class AuthUser(AbstractUser):
         db_table = "Users"
 
 
-class UserSettings(models.Model):
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False,
-        help_text="Unique ID for the user.",
-    )
+class UserSettings(BaseModel):
     user = models.ForeignKey(
         AuthUser,
         on_delete=models.CASCADE,
@@ -194,14 +167,13 @@ class UserSettings(models.Model):
         return f"Settings for {self.user.email}"
 
 
-class UserOrganization(models.Model):
+class UserOrganization(BaseModel):
     """
     Links users to multiple organizations (tenants).
     """
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey("AuthUser", on_delete=models.CASCADE, related_name="organizations")
     tenant_id = models.UUIDField(help_text="Tenant ID from the Tenant Service")
-    # role = models.CharField(max_length=50, help_text="User's role within this tenant.")
+    role = models.UUIDField(help_text="User's role within this tenant.")
 
     class Meta:
         db_table = "UserOrganizations"
@@ -209,3 +181,17 @@ class UserOrganization(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.tenant_id}"
+
+
+class UserAddress(BaseModel):
+    user = models.ForeignKey(AuthUser, on_delete=models.CASCADE, related_name="address")
+    address = models.UUIDField()
+    is_primary = models.BooleanField(default=False)
+    country = models.CharField(
+        max_length=2,
+        blank=True,
+        choices=COUNTRY_CHOICES,
+        # validators=[lambda value: validate_choice(value, COUNTRY_CHOICES)],
+        default="US",
+    )
+

@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from .utils import generate_token_payload
 from django.contrib.auth import get_user_model
+from rest_framework.decorators import action
 from django.conf import settings
 from django.db.models import Q
 from rest_framework import status
@@ -161,48 +162,6 @@ class LoginView(TokenObtainPairView):
         return Response(response_data, status=status.HTTP_200_OK)
 
 
-class RetrieveUserView(APIView):
-    """
-    Retrieve a user by email, UUID, or phone number.
-    This endpoint is only available in DEBUG mode.
-    """
-
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        if not settings.DEBUG:
-            return Response(
-                {"error": "This endpoint is only available in DEBUG mode."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        email = request.data.get("email")
-        uuid = request.data.get("uuid")
-        phone = request.data.get("phone")
-
-        if not any([email, uuid, phone]):
-            return Response(
-                {"error": "You must provide an email, uuid, or phone number."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        filters = Q()
-        if email:
-            filters |= Q(email=email)
-        if uuid:
-            filters |= Q(id=uuid)
-        if phone:
-            filters |= Q(phone=phone)
-
-        user = User.objects.filter(filters).first()
-        if not user:
-            return Response(
-                {"error": "User not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-        serializer = UserSerializer(user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
 class UserTenantView(APIView):
     permission_classes = [AllowAny]
 
@@ -280,8 +239,27 @@ class UserTenantView(APIView):
 
 class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
         return User.objects.all()
+
+    @action(detail=False, methods=['get'], url_path='filter')
+    def filter_users(self, request):
+        """Filter Users based on query parameters"""
+        username = request.query_params.get('username', None)
+        email = request.query_params.get('email', None)
+        is_active = request.query_params.get('is_active', None)
+
+        filters = {}
+        if username:
+            filters['username__icontains'] = username  # Case-insensitive search
+        if email:
+            filters['email__icontains'] = email  # Case-insensitive search
+        if is_active is not None:
+            filters['is_active'] = is_active.lower() == 'true'  # Convert to boolean
+
+        users = User.objects.filter(**filters)
+        serializer = self.get_serializer(users, many=True)
+        return Response(serializer.data)
 

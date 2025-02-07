@@ -66,7 +66,6 @@ def generate_token_payload(user):
     settings = get_user_settings(user)
     organizations = user.organizations.all()
 
-    refresh["role"] = user.role
     refresh["is_dark"] = settings.is_dark if settings else False
     refresh["email"] = user.email
     refresh["first_name"] = user.first_name

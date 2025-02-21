@@ -260,7 +260,6 @@ class UserViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
-        # location = get_location_from_ip(request)
         return Response(serializer.data, status=HTTP_200_OK)
 
 

@@ -178,6 +178,7 @@ class UserLocationSerializer(serializers.ModelSerializer):
             "state",
             "country",
             "timezone",
+            "is_proxy",
         ]
 
     def to_internal_value(self, data):
@@ -198,6 +199,7 @@ class UserLocationSerializer(serializers.ModelSerializer):
                 'state': address.get('state'),
                 'country': address.get('country'),
                 'timezone': timezone_info.get('id'),
+                'is_proxy': data.get('proxy', False)
             }
 
         return super().to_internal_value(set_transformed_data)
@@ -208,6 +210,7 @@ class UserLocationSerializer(serializers.ModelSerializer):
         location, created = UserLocation.objects.get_or_create(
             user=user,
             ip_address=validated_data.get('ip_address'),
+            is_proxy=validated_data.get('is_proxy'),
             defaults={
                 'latitude': validated_data.get('latitude'),
                 'longitude': validated_data.get('longitude'),

@@ -140,6 +140,11 @@ class UserSettings(BaseModel):
         default="weekly",
         help_text="Preferred payout frequency.",
     )
+    currency = models.CharField(
+        max_length=50,
+        null=False,
+        default="USD"
+    )
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -198,6 +203,7 @@ class UserLocation(BaseModel):
     country = models.CharField(max_length=100, blank=True, null=True)
     timezone = models.CharField(max_length=100, blank=True, null=True)
     recorded_at = models.DateTimeField(auto_now_add=True)
+    is_proxy = models.BooleanField(null=True, blank=True)
 
     class Meta:
         db_table = "UserLocations"

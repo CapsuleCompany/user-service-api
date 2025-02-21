@@ -1,24 +1,18 @@
 from django.utils import timezone
+from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import generics, permissions, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from .utils import generate_token_payload
+from .utils.auth.token import generate_token_payload
+from .utils.location.client import get_client_ip, get_location_from_ip
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import action
-from django.conf import settings
-from django.db.models import Q
 from rest_framework import status
-from .serializers import (
-    UserSerializer,
-    UserSettingsSerializer,
-    GetTokenPairSerializer,
-    UserCreationSerializer,
-    UserTenantSerializer,
-)
-from .models import UserSettings, UserOrganization
+from .serializers import *
+from .models import UserSettings, UserOrganization, UserLocation
 
 
 User = get_user_model()
@@ -253,13 +247,30 @@ class UserViewSet(viewsets.ModelViewSet):
 
         filters = {}
         if username:
-            filters['username__icontains'] = username  # Case-insensitive search
+            filters['username__icontains'] = username
         if email:
-            filters['email__icontains'] = email  # Case-insensitive search
+            filters['email__icontains'] = email
         if is_active is not None:
-            filters['is_active'] = is_active.lower() == 'true'  # Convert to boolean
+            filters['is_active'] = is_active.lower() == 'true'
 
         users = User.objects.filter(**filters)
         serializer = self.get_serializer(users, many=True)
         return Response(serializer.data)
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        # location = get_location_from_ip(request)
+        return Response(serializer.data, status=HTTP_200_OK)
+
+
+class UserIPLocationView(APIView):
+    permission_classes = [permissions.AllowAny]
+    # permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = UserLocationSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response({"message": "added"}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

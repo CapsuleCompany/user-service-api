@@ -6,6 +6,8 @@ from datetime import timedelta
 env = Env()
 env.read_env()
 
+IPGEOLOCATION_API_KEY = env.str("IPGEOLOCATION_API_KEY")
+
 # Base directory
 BASE_DIR = Path(__file__).resolve().parent.parent
 

@@ -1,8 +1,8 @@
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework import serializers
-from .utils import generate_token_payload
-from .models import UserSettings, UserOrganization
+from .utils.auth.token import generate_token_payload
+from .models import *
 import re
 
 User = get_user_model()
@@ -165,3 +165,56 @@ class UserSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserSettings
         exclude = ["updated_at"]
+
+
+class UserLocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserLocation
+        fields = [
+            "ip_address",
+            "latitude",
+            "longitude",
+            "city",
+            "state",
+            "country",
+            "timezone",
+        ]
+
+    def to_internal_value(self, data):
+        if 'ip' in data and 'address' not in data:
+            set_transformed_data = {'ip_address': data.get('ip')}
+        else:
+            if data.get('meta', {}).get('code') != 200:
+                raise serializers.ValidationError("Invalid response code in metadata.")
+
+            address = data.get('address', {})
+            timezone_info = address.get('timeZone', {})
+
+            set_transformed_data = {
+                'ip_address': data.get('ip'),
+                'latitude': address.get('latitude'),
+                'longitude': address.get('longitude'),
+                'city': address.get('city'),
+                'state': address.get('state'),
+                'country': address.get('country'),
+                'timezone': timezone_info.get('id'),
+            }
+
+        return super().to_internal_value(set_transformed_data)
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+
+        location, created = UserLocation.objects.get_or_create(
+            user=user,
+            ip_address=validated_data.get('ip_address'),
+            defaults={
+                'latitude': validated_data.get('latitude'),
+                'longitude': validated_data.get('longitude'),
+                'city': validated_data.get('city'),
+                'state': validated_data.get('state'),
+                'country': validated_data.get('country'),
+                'timezone': validated_data.get('timezone'),
+            }
+        )
+        return location

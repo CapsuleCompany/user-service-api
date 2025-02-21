@@ -44,7 +44,7 @@ Example Usage:
     print(str(token))  # Outputs the generated JWT as a string.
 """
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import UserSettings
+from users.models import UserSettings
 
 
 def get_user_settings(user):

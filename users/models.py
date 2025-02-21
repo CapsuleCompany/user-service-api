@@ -2,16 +2,8 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 import uuid
 from common.models import BaseModel
-from .assets.choices import (
-    LANGUAGE_CHOICES,
-    TIMEZONE_CHOICES,
-    COUNTRY_CHOICES,
-    ROLE_CHOICES,
-    PAYOUT_FREQUENCY_CHOICES,
-    PAYMENT_ACCOUNT_TYPE_CHOICES,
-    PAYMENT_PREFERENCE_CHOICES,
-    validate_choice,
-)
+from .assets.choices import *
+
 
 class AuthUser(AbstractUser):
     id = models.UUIDField(
@@ -195,3 +187,24 @@ class UserAddress(BaseModel):
         default="US",
     )
 
+
+class UserLocation(BaseModel):
+    user = models.ForeignKey(AuthUser, on_delete=models.CASCADE, related_name="locations")
+    ip_address = models.GenericIPAddressField()
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    city = models.CharField(max_length=100, blank=True, null=True)
+    state = models.CharField(max_length=100, blank=True, null=True)
+    country = models.CharField(max_length=100, blank=True, null=True)
+    timezone = models.CharField(max_length=100, blank=True, null=True)
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "UserLocations"
+        indexes = [
+            models.Index(fields=["user", "-recorded_at"]),
+            models.Index(fields=["ip_address"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} from IP {self.ip_address} at {self.recorded_at}"

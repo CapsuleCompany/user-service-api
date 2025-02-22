@@ -43,6 +43,7 @@ Example Usage:
     token = generate_token_payload(user)
     print(str(token))  # Outputs the generated JWT as a string.
 """
+
 from rest_framework_simplejwt.tokens import RefreshToken
 from users.models import UserSettings
 
@@ -77,5 +78,8 @@ def generate_token_payload(user):
     refresh["last_login"] = user.last_login.isoformat() if user.last_login else None
     refresh["is_active"] = user.is_active
     refresh["is_superuser"] = user.is_superuser
-    refresh["tenants"] = [str(tenant_id) for tenant_id in organizations.values_list("tenant_id", flat=True)]
+    refresh["tenants"] = [
+        str(tenant_id)
+        for tenant_id in organizations.values_list("tenant_id", flat=True)
+    ]
     return refresh

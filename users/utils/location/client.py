@@ -1,6 +1,7 @@
 import requests
 from django.conf import settings
 
+
 def get_client_ip(request):
     """
     Retrieves the IP address from a request object.
@@ -13,7 +14,9 @@ def get_client_ip(request):
         ip = request.META.get("REMOTE_ADDR")
     return ip
 
+
 API_KEY = settings.IPGEOLOCATION_API_KEY
+
 
 def get_location_from_ip(request):
     """
@@ -23,21 +26,21 @@ def get_location_from_ip(request):
 
     # TODO: Local Dev
     if ip_address[:3] == "192":
-        response = requests.get('https://api.ipify.org?format=json')
+        response = requests.get("https://api.ipify.org?format=json")
         response.raise_for_status()
-        ip_data= response.json()
-        ip_address = ip_data['ip']
+        ip_data = response.json()
+        ip_address = ip_data["ip"]
 
     if not ip_address or ip_address == "127.0.0.1":
         return {"error": "Localhost IP detected, unable to get location. --cc--"}
 
     url = f"https://api.ipgeolocation.io/ipgeo?apiKey={API_KEY}&ip={ip_address}"
 
-    #TODO: On Paid Subscription
+    # TODO: On Paid Subscription
     """url = f"https://api.ipgeolocation.io/ipgeo?apiKey={API_KEY}&ip={ip_address}&include=security"""
 
     headers = {
-        'User-Agent': request.META.get('HTTP_USER_AGENT', 'Django-IP-Client/1.0')
+        "User-Agent": request.META.get("HTTP_USER_AGENT", "Django-IP-Client/1.0")
     }
 
     response = requests.get(url, headers=headers)

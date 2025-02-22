@@ -140,11 +140,7 @@ class UserSettings(BaseModel):
         default="weekly",
         help_text="Preferred payout frequency.",
     )
-    currency = models.CharField(
-        max_length=50,
-        null=False,
-        default="USD"
-    )
+    currency = models.CharField(max_length=50, null=False, default="USD")
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
@@ -168,9 +164,12 @@ class UserOrganization(BaseModel):
     """
     Links users to multiple organizations (tenants).
     """
-    user = models.ForeignKey("AuthUser", on_delete=models.CASCADE, related_name="organizations")
+
+    user = models.ForeignKey(
+        "AuthUser", on_delete=models.CASCADE, related_name="organizations"
+    )
     tenant_id = models.UUIDField(help_text="Tenant ID from the Tenant Service")
-    role = models.UUIDField(help_text="User's role within this tenant.")
+    role = models.UUIDField(help_text="User's role within this tenant.", null=True)
 
     class Meta:
         db_table = "UserOrganizations"
@@ -194,10 +193,16 @@ class UserAddress(BaseModel):
 
 
 class UserLocation(BaseModel):
-    user = models.ForeignKey(AuthUser, on_delete=models.CASCADE, related_name="locations")
+    user = models.ForeignKey(
+        AuthUser, on_delete=models.CASCADE, related_name="locations"
+    )
     ip_address = models.GenericIPAddressField()
-    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    latitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True
+    )
+    longitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True
+    )
     city = models.CharField(max_length=100, blank=True, null=True)
     state = models.CharField(max_length=100, blank=True, null=True)
     country = models.CharField(max_length=100, blank=True, null=True)

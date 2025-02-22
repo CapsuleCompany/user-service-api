@@ -54,7 +54,9 @@ class UserSettingsView(APIView):
         """Allow both partial and full updates."""
         try:
             settings = UserSettings.objects.get(user=request.user)
-            serializer = UserSettingsSerializer(settings, data=request.data, partial=True)
+            serializer = UserSettingsSerializer(
+                settings, data=request.data, partial=True
+            )
 
             if serializer.is_valid():
                 serializer.save()
@@ -156,57 +158,43 @@ class LoginView(TokenObtainPairView):
         return Response(response_data, status=status.HTTP_200_OK)
 
 
-class UserTenantView(APIView):
+class UserTenantView(viewsets.ModelViewSet):
     permission_classes = [AllowAny]
+    serializer_class = UserTenantSerializer
+    queryset = UserOrganization.objects.all()
 
-    def get(self, request):
-        """
-        Retrieves the tenant information associated with the authenticated user.
-        """
-        tenants = UserOrganization.objects.filter(user=request.user)
-        serializer = UserTenantSerializer(tenants, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    def get_queryset(self):
+        return self.queryset.filter(user=self.request.user)
 
-    def put(self, request):
-        """
-        Allows updating user tenant information.
-        """
+    def list(self, request, *args, **kwargs):
+        tenants = self.get_queryset()
+        serializer = self.get_serializer(tenants, many=True)
+        return Response(serializer.data)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(
+            data=request.data, context={"user": request.user}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, pk=None, *args, **kwargs):
         try:
-            tenant = UserOrganization.objects.get(user=request.user, tenant_id=request.data.get("tenant_id"))
-            serializer = UserTenantSerializer(tenant, data=request.data, partial=True)
-
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
-
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+            tenant = self.get_queryset().get(tenant_id=pk)
         except UserOrganization.DoesNotExist:
             return Response(
                 {"error": "User organization not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-    def post(self, request):
-        """
-        Adds a user to a tenant.
-        """
-        serializer = UserTenantSerializer(data=request.data, context=request.user)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        print(request.data)
-        return Response(
-            {"error": "User creation failed", "details": serializer.errors},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+        serializer = self.get_serializer(tenant, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
-    def delete(self, request, tenant_id=None):
-        """
-        Removes the user from one or more tenants.
-        Expects a `tenant_id` in the URL or a `tenant_id` / list of `tenant_ids` in the request data.
-        """
-        tenant_ids = [tenant_id] if tenant_id else request.data.get("tenant_id") or request.data.get("tenant_ids")
+    def destroy(self, request, pk=None, *args, **kwargs):
+        tenant_ids = [pk] if pk else request.data.get("tenant_ids")
 
         if not tenant_ids:
             return Response(
@@ -217,7 +205,7 @@ class UserTenantView(APIView):
         if isinstance(tenant_ids, str):
             tenant_ids = [tenant_ids]
 
-        deleted_count, _ = UserOrganization.objects.filter(tenant_id__in=tenant_ids).delete()
+        deleted_count, _ = self.get_queryset().filter(tenant_id__in=tenant_ids).delete()
 
         if deleted_count == 0:
             return Response(
@@ -238,20 +226,20 @@ class UserViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return User.objects.all()
 
-    @action(detail=False, methods=['get'], url_path='filter')
+    @action(detail=False, methods=["get"], url_path="filter")
     def filter_users(self, request):
         """Filter Users based on query parameters"""
-        username = request.query_params.get('username', None)
-        email = request.query_params.get('email', None)
-        is_active = request.query_params.get('is_active', None)
+        username = request.query_params.get("username", None)
+        email = request.query_params.get("email", None)
+        is_active = request.query_params.get("is_active", None)
 
         filters = {}
         if username:
-            filters['username__icontains'] = username
+            filters["username__icontains"] = username
         if email:
-            filters['email__icontains'] = email
+            filters["email__icontains"] = email
         if is_active is not None:
-            filters['is_active'] = is_active.lower() == 'true'
+            filters["is_active"] = is_active.lower() == "true"
 
         users = User.objects.filter(**filters)
         serializer = self.get_serializer(users, many=True)
@@ -268,7 +256,9 @@ class UserIPLocationView(APIView):
     # permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        serializer = UserLocationSerializer(data=request.data, context={'request': request})
+        serializer = UserLocationSerializer(
+            data=request.data, context={"request": request}
+        )
         if serializer.is_valid():
             serializer.save(user=request.user)
             return Response({"message": "added"}, status=status.HTTP_201_CREATED)

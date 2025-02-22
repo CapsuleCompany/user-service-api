@@ -116,7 +116,7 @@ class UserCreationSerializer(serializers.ModelSerializer):
 class UserTenantSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserOrganization
-        fields = '__all__'
+        fields = "__all__"
 
     def to_internal_value(self, data):
         validated_data = super().to_internal_value(data)
@@ -182,42 +182,42 @@ class UserLocationSerializer(serializers.ModelSerializer):
         ]
 
     def to_internal_value(self, data):
-        if 'ip' in data and 'address' not in data:
-            set_transformed_data = {'ip_address': data.get('ip')}
+        if "ip" in data and "address" not in data:
+            set_transformed_data = {"ip_address": data.get("ip")}
         else:
-            if data.get('meta', {}).get('code') != 200:
+            if data.get("meta", {}).get("code") != 200:
                 raise serializers.ValidationError("Invalid response code in metadata.")
 
-            address = data.get('address', {})
-            timezone_info = address.get('timeZone', {})
+            address = data.get("address", {})
+            timezone_info = address.get("timeZone", {})
 
             set_transformed_data = {
-                'ip_address': data.get('ip'),
-                'latitude': address.get('latitude'),
-                'longitude': address.get('longitude'),
-                'city': address.get('city'),
-                'state': address.get('state'),
-                'country': address.get('country'),
-                'timezone': timezone_info.get('id'),
-                'is_proxy': data.get('proxy', False)
+                "ip_address": data.get("ip"),
+                "latitude": address.get("latitude"),
+                "longitude": address.get("longitude"),
+                "city": address.get("city"),
+                "state": address.get("state"),
+                "country": address.get("country"),
+                "timezone": timezone_info.get("id"),
+                "is_proxy": data.get("proxy", False),
             }
 
         return super().to_internal_value(set_transformed_data)
 
     def create(self, validated_data):
-        user = self.context['request'].user
+        user = self.context["request"].user
 
         location, created = UserLocation.objects.get_or_create(
             user=user,
-            ip_address=validated_data.get('ip_address'),
-            is_proxy=validated_data.get('is_proxy'),
+            ip_address=validated_data.get("ip_address"),
+            is_proxy=validated_data.get("is_proxy"),
             defaults={
-                'latitude': validated_data.get('latitude'),
-                'longitude': validated_data.get('longitude'),
-                'city': validated_data.get('city'),
-                'state': validated_data.get('state'),
-                'country': validated_data.get('country'),
-                'timezone': validated_data.get('timezone'),
-            }
+                "latitude": validated_data.get("latitude"),
+                "longitude": validated_data.get("longitude"),
+                "city": validated_data.get("city"),
+                "state": validated_data.get("state"),
+                "country": validated_data.get("country"),
+                "timezone": validated_data.get("timezone"),
+            },
         )
         return location

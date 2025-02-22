@@ -9,6 +9,7 @@ class UsersConfig(AppConfig):
 
     def ready(self):
         import users.signals
+
         pre_migrate.connect(create_schema, sender=self)
 
 

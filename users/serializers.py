@@ -13,7 +13,8 @@ class BaseUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["email", "phone_number", "first_name", "last_name"]
+        fields = ["id", "email", "phone_number", "first_name", "last_name"]
+        read_only_fields = ["id"]
         extra_kwargs = {
             "email": {"required": False},
             "phone_number": {"required": False},

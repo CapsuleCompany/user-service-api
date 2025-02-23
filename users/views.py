@@ -242,16 +242,21 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """Create a new user from Organization"""
+        print(request.data)
+        print('here')
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             try:
                 return Response(serializer.data, status=HTTP_201_CREATED)
             except Exception as e:
+                print(e)
                 return Response(
                     {"error": f"User creation failed: {str(e)}"},
                     status=HTTP_400_BAD_REQUEST,
                 )
         else:
+            print('error')
+            print(serializer.errors)
             return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
 

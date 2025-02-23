@@ -1,5 +1,7 @@
+from time import sleep
+
 from django.utils import timezone
-from rest_framework.status import HTTP_200_OK, HTTP_201_CREATED, HTTP_400_BAD_REQUEST
+from rest_framework.status import *
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import generics, permissions, viewsets
@@ -237,29 +239,45 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
+        sleep(2)
+        queryset = self.get_queryset().order_by("-date_joined")
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data, status=HTTP_200_OK)
 
     def create(self, request, *args, **kwargs):
         """Create a new user from Organization"""
-        print(request.data)
-        time.sleep(3)
-        serializer = self.get_serializer(data=request.data)
+        time.sleep(2)
+        serializer = self.get_serializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             try:
+                serializer.save()
                 return Response(serializer.data, status=HTTP_201_CREATED)
             except Exception as e:
-                print(e)
                 return Response(
                     {"error": f"User creation failed: {str(e)}"},
                     status=HTTP_400_BAD_REQUEST,
                 )
         else:
-            print('error')
-            print(serializer.errors)
             return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
+    def destroy(self, request, pk=None, *args, **kwargs):
+        """Delete a user by ID."""
+        sleep(3)
+        try:
+            user = self.get_queryset().get(pk=pk)
+            user.delete()
+            return Response(
+                {"message": "User deleted successfully"}, status=HTTP_204_NO_CONTENT
+            )
+        except User.DoesNotExist:
+            return Response(
+                {"error": "User not found"}, status=HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to delete user: {str(e)}"},
+                status=HTTP_400_BAD_REQUEST,
+            )
 
 class UserIPLocationView(APIView):
     permission_classes = [permissions.AllowAny]

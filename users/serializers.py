@@ -128,7 +128,7 @@ class UserCreationSerializer(BaseUserSerializer):
             }
 
         # If user does not exist, create a new one
-        user = User.objects.create_user(
+        user = User.objects.create(
             username=email,
             email=email,
             phone_number=phone_number,
@@ -157,8 +157,19 @@ class UserSerializer(BaseUserSerializer):
         """
         Admin creates a user; password is optional.
         """
+
+        if "username" not in validated_data or not validated_data["username"]:
+            validated_data["username"] = validated_data.get("email")
         password = validated_data.pop("password", None)
-        user = User.objects.create_user(**validated_data)
+        user = User.objects.create(**validated_data)
+        # admin_user = self.context["request"].user
+        admin_user = User.objects.filter(email="ccrowder@capsuleio.com").first()
+        admin_org = UserOrganization.objects.filter(user=admin_user).first()
+
+        if user:
+            UserOrganization.objects.create(
+                user=user, tenant_id=admin_org.tenant_id
+            )
 
         if password:
             user.set_password(password)

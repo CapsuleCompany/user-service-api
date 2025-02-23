@@ -6,7 +6,6 @@ from rest_framework import generics, permissions, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from .utils.auth.token import generate_token_payload
 from .utils.location.client import get_client_ip, get_location_from_ip
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import action
@@ -77,16 +76,7 @@ class UserCreationView(APIView):
         if serializer.is_valid():
             try:
                 user = serializer.save()
-                # Generate refresh and access tokens
-                refresh = generate_token_payload(user)
-
-                return Response(
-                    {
-                        "refresh": str(refresh),
-                        "access": str(refresh.access_token),
-                    },
-                    status=status.HTTP_201_CREATED,
-                )
+                return Response(user, status=status.HTTP_201_CREATED)
             except Exception as e:
                 return Response(
                     {"error": f"User creation failed: {str(e)}"},
@@ -249,6 +239,20 @@ class UserViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data, status=HTTP_200_OK)
+
+    def create(self, request, *args, **kwargs):
+        """Create a new user from Organization"""
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                return Response(serializer.data, status=HTTP_201_CREATED)
+            except Exception as e:
+                return Response(
+                    {"error": f"User creation failed: {str(e)}"},
+                    status=HTTP_400_BAD_REQUEST,
+                )
+        else:
+            return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
 
 
 class UserIPLocationView(APIView):

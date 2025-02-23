@@ -8,6 +8,49 @@ import re
 User = get_user_model()
 
 
+class BaseUserSerializer(serializers.ModelSerializer):
+    """Base serializer containing shared user validation logic."""
+
+    class Meta:
+        model = User
+        fields = ["email", "phone_number", "first_name", "last_name"]
+        extra_kwargs = {
+            "email": {"required": False},
+            "phone_number": {"required": False},
+            "first_name": {"required": True},
+            "last_name": {"required": True},
+        }
+
+    def validate(self, data):
+        """
+        Validate that at least one of `email` or `phone_number` is provided.
+        """
+        errors = {}
+
+        if not data.get("email") and not data.get("phone_number"):
+            errors["email_or_phone"] = "Either email or phone number must be provided."
+
+        if "phone_number" in data and not self.is_valid_phone(data["phone_number"]):
+            errors["phone_number"] = "Invalid phone number format."
+
+        if User.objects.filter(email=data.get("email")).exists():
+            errors["email"] = "A user with this email already exists."
+
+        if data.get("phone_number") and User.objects.filter(phone_number=data.get("phone_number")).exists():
+            errors["phone_number"] = "A user with this phone number already exists."
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return data
+
+    @staticmethod
+    def is_valid_phone(phone_number):
+        """Validate phone number format."""
+        import re
+        return re.match(r"^\+?1?\d{9,15}$", phone_number) is not None
+
+
 class GetTokenPairSerializer(serializers.Serializer):
     email_or_phone = serializers.CharField(write_only=True)
     password = serializers.CharField(write_only=True)
@@ -51,66 +94,76 @@ class GetTokenPairSerializer(serializers.Serializer):
         return re.match(r"^\+?1?\d{9,15}$", phone_number) is not None
 
 
-class UserCreationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ["email", "phone_number", "password", "first_name", "last_name"]
-        extra_kwargs = {
-            "email": {"required": False},
-            "phone_number": {"required": False},
-            "password": {"write_only": True, "required": True},
-            "first_name": {"required": True},
-            "last_name": {"required": True},
-        }
+class UserCreationSerializer(BaseUserSerializer):
+    """Serializer for user self-registration (or logs in if user exists)."""
 
-    def validate(self, data):
-        """
-        Validate that at least one of `email` or `phone_number` is provided.
-        """
-        errors = {}
+    password = serializers.CharField(write_only=True, required=True)
 
-        # Ensure at least one of email or phone number is provided
-        if not data.get("email") and not data.get("phone_number"):
-            errors["email_or_phone"] = "Either email or phone number must be provided."
-
-        # Validate phone number format
-        phone_number = data.get("phone_number")
-        if phone_number and not self.is_valid_phone(phone_number):
-            errors["phone_number"] = "Invalid phone number format."
-
-        # Check for duplicate phone number
-        if phone_number and User.objects.filter(phone_number=phone_number).exists():
-            errors["phone_number"] = "A user with this phone number already exists."
-
-        # Check for duplicate email
-        email = data.get("email")
-        if email and User.objects.filter(email=email).exists():
-            errors["email"] = "A user with this email already exists."
-
-        if errors:
-            raise serializers.ValidationError(errors)
-
-        return data
-
-    @staticmethod
-    def is_valid_phone(phone_number):
-        """Validate phone number format."""
-        import re
-
-        return re.match(r"^\+?1?\d{9,15}$", phone_number) is not None
+    class Meta(BaseUserSerializer.Meta):
+        fields = BaseUserSerializer.Meta.fields + ["password"]
 
     def create(self, validated_data):
         """
-        Create a new user instance with the validated data.
+        If the user exists and the password is correct, log in and return tokens.
+        Otherwise, create a new user and return tokens.
         """
-        return User.objects.create_user(
-            username=validated_data.get("email"),
-            email=validated_data.get("email"),
-            phone_number=validated_data.get("phone_number"),
-            password=validated_data["password"],
+        email = validated_data.get("email")
+        phone_number = validated_data.get("phone_number")
+        password = validated_data["password"]
+
+        # Check if a user already exists
+        user = User.objects.filter(email=email).first() or User.objects.filter(phone_number=phone_number).first()
+
+        if user:
+            # Authenticate user
+            if not user.check_password(password):
+                raise AuthenticationFailed("Email or Phone Number already in use")
+
+            # Generate tokens for existing user
+            refresh = generate_token_payload(user)
+            return {
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            }
+
+        # If user does not exist, create a new one
+        user = User.objects.create_user(
+            username=email,
+            email=email,
+            phone_number=phone_number,
+            password=password,
             first_name=validated_data["first_name"],
             last_name=validated_data["last_name"],
         )
+
+        # Generate JWT tokens for new user
+        refresh = generate_token_payload(user)
+        return {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+        }
+
+
+class UserSerializer(BaseUserSerializer):
+    """Serializer for admin users creating new users (no JWT tokens)."""
+
+    password = serializers.CharField(write_only=True, required=False)
+
+    class Meta(BaseUserSerializer.Meta):
+        fields = BaseUserSerializer.Meta.fields + ["password"]
+
+    def create(self, validated_data):
+        """
+        Admin creates a user; password is optional.
+        """
+        password = validated_data.pop("password", None)
+        user = User.objects.create_user(**validated_data)
+
+        if password:
+            user.set_password(password)
+            user.save()
+
+        return UserSerializer(user).data
 
 
 class UserTenantSerializer(serializers.ModelSerializer):
@@ -129,36 +182,6 @@ class UserTenantSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user_org = UserOrganization.objects.create(**validated_data)
         return user_org
-
-
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        exclude = [
-            "password",
-            "is_staff",
-            "username",
-            "timezone",
-            "groups",
-            "user_permissions",
-        ]
-        read_only_fields = ["id"]
-
-    def to_internal_value(self, data):
-        validated_data = super().to_internal_value(data)
-        return validated_data
-
-    def update(self, instance, validated_data):
-        settings_data = validated_data.pop("settings", None)
-        if settings_data:
-            settings_instance = instance.settings
-            for attr, value in settings_data.items():
-                setattr(settings_instance, attr, value)
-            settings_instance.save()
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        return instance
 
 
 class UserSettingsSerializer(serializers.ModelSerializer):

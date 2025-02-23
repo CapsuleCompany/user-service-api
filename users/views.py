@@ -12,6 +12,7 @@ from rest_framework.decorators import action
 from rest_framework import status
 from .serializers import *
 from .models import UserSettings, UserOrganization, UserLocation
+import time
 
 
 User = get_user_model()
@@ -243,7 +244,7 @@ class UserViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """Create a new user from Organization"""
         print(request.data)
-        print('here')
+        time.sleep(3)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             try:

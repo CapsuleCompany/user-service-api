@@ -66,6 +66,11 @@ SIMPLE_JWT = {
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "TOKEN_TYPE_CLAIM": "token_type",
     "JTI_CLAIM": "jti",
+    "AUTH_COOKIE": "accessToken",
+    "AUTH_COOKIE_REFRESH": "refreshToken",
+    "AUTH_COOKIE_HTTP_ONLY": True,
+    "AUTH_COOKIE_SAMESITE": "Lax",
+    "AUTH_COOKIE_SECURE": True,
 }
 
 # Database settings
@@ -101,3 +106,17 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 KAFKA_TOPIC = env.str("KAFKA_TOPIC", default="default_topic")
 KAFKA_SERVERS = env.list("KAFKA_SERVERS", default=["kafka:9092"])
 APPEND_SLASH=False
+
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://dev.capsuleio.com",
+]
+
+
+# Security settings
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+CSRF_TRUSTED_ORIGINS = ["https://yourfrontend.com", "http://localhost:3000"]

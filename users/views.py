@@ -13,7 +13,8 @@ from django.contrib.auth import get_user_model
 from rest_framework.decorators import action
 from rest_framework import status
 from .serializers import *
-from .models import UserSettings, UserOrganization, UserLocation
+from .models import *
+from django.conf import settings
 import time
 
 
@@ -76,18 +77,46 @@ class UserCreationView(APIView):
 
     def post(self, request):
         serializer = UserCreationSerializer(data=request.data)
+
         if serializer.is_valid():
             try:
                 user = serializer.save()
-                return Response(user, status=status.HTTP_201_CREATED)
+                refresh = RefreshToken.for_user(user)
+                access_token = str(refresh.access_token)
+
+                response_data = {"message": "User created successfully"}
+
+                # Return tokens in DEBUG mode for testing
+                if settings.DEBUG:
+                    response_data.update({"access": access_token, "refresh": str(refresh)})
+
+                response = Response(response_data, status=status.HTTP_201_CREATED)
+
+                # Set tokens as HTTP-only cookies
+                response.set_cookie(
+                    key="accessToken",
+                    value=access_token,
+                    httponly=True,
+                    secure=not settings.DEBUG,
+                    samesite="Lax",
+                )
+                response.set_cookie(
+                    key="refreshToken",
+                    value=str(refresh),
+                    httponly=True,
+                    secure=not settings.DEBUG,
+                    samesite="Lax",
+                )
+
+                return response
+
             except Exception as e:
                 return Response(
                     {"error": f"User creation failed: {str(e)}"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
-        return Response(
-            {"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST
-        )
+
+        return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class LogoutView(APIView):
@@ -95,8 +124,8 @@ class LogoutView(APIView):
 
     def post(self, request):
         try:
-            # Extract the refresh token from the request body
-            refresh_token = request.data.get("refresh")
+            refresh_token = request.COOKIES.get("refreshToken")  # Get from cookies
+
             if not refresh_token:
                 return Response(
                     {"error": "Refresh token is required"},
@@ -107,18 +136,20 @@ class LogoutView(APIView):
             token = RefreshToken(refresh_token)
             token.blacklist()
 
-            return Response(
-                {"message": "Successfully logged out"},
-                status=status.HTTP_205_RESET_CONTENT,
-            )
+            response = Response({"message": "Successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
+
+            # Remove tokens from cookies
+            response.delete_cookie("accessToken")
+            response.delete_cookie("refreshToken")
+
+            return response
+
         except AttributeError:
-            # Raised if blacklisting is not enabled or supported
             return Response(
                 {"error": "Token blacklisting is not enabled in your settings"},
                 status=status.HTTP_501_NOT_IMPLEMENTED,
             )
         except Exception as e:
-            # Handle invalid tokens or unexpected errors
             return Response(
                 {"error": f"Invalid token - {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -143,12 +174,33 @@ class LoginView(TokenObtainPairView):
         user.last_login = timezone.now()
         user.save(update_fields=["last_login"])
 
-        response_data = {
-            "refresh": validated_data["refresh"],
-            "access": validated_data["access"],
-        }
+        refresh = validated_data["refresh"]
+        access_token = validated_data["access"]
 
-        return Response(response_data, status=status.HTTP_200_OK)
+        response_data = {"message": "Login successful"}
+
+        # Return tokens in DEBUG mode
+        if settings.DEBUG:
+            response_data.update({"access": access_token, "refresh": refresh})
+
+        response = Response(response_data, status=status.HTTP_200_OK)
+
+        response.set_cookie(
+            key="accessToken",
+            value=access_token,
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="Lax",
+        )
+        response.set_cookie(
+            key="refreshToken",
+            value=refresh,
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="Lax",
+        )
+
+        return response
 
 
 class UserTenantView(viewsets.ModelViewSet):
@@ -239,6 +291,9 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def list(self, request, *args, **kwargs):
+        print(request.user.id)
+        print(request.user)
+        print(request.user.email)
         sleep(2)
         queryset = self.get_queryset().order_by("-date_joined")
         serializer = self.get_serializer(queryset, many=True)

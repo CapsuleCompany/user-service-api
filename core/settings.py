@@ -48,13 +48,17 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
-    "DEFAULT_AUTHENTICATION_CLASSES": ["users.authentication.CustomJWTAuthentication"],
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "users.authentication.CookieAuthentication",
+        "users.authentication.CustomJWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ),
 }
 
 # JWT settings
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=50000),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
@@ -66,11 +70,11 @@ SIMPLE_JWT = {
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "TOKEN_TYPE_CLAIM": "token_type",
     "JTI_CLAIM": "jti",
-    "AUTH_COOKIE": "accessToken",
-    "AUTH_COOKIE_REFRESH": "refreshToken",
+    "AUTH_COOKIE": "cc_access",
+    "AUTH_COOKIE_REFRESH": "cc_refresh",
     "AUTH_COOKIE_HTTP_ONLY": True,
     "AUTH_COOKIE_SAMESITE": "Lax",
-    "AUTH_COOKIE_SECURE": True,
+    "AUTH_COOKIE_SECURE": False,
 }
 
 # Database settings
@@ -87,7 +91,7 @@ DATABASES = {
 }
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=True)
+# CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=True)
 CORS_ALLOW_CREDENTIALS = env.bool("CORS_ALLOW_CREDENTIALS", default=True)
 
 # Custom user model and authentication backend
@@ -114,9 +118,12 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 
+TENANT_API_URL = "http://service-api:8000/api/tenant/"
+
 # Security settings
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
+CORS_ALLOW_ALL_ORIGINS = True
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
-CSRF_TRUSTED_ORIGINS = ["https://yourfrontend.com", "http://localhost:3000"]
+CSRF_TRUSTED_ORIGINS = ["http://dev.capsuleio.com", "http://localhost:3000"]

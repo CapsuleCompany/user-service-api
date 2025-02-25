@@ -58,7 +58,6 @@ def get_user_settings(user):
         settings = UserSettings.objects.filter(user=user).first()
     else:
         settings = UserSettings.objects.filter(user=user).first()
-
     return settings or UserSettings.objects.create(user=user)
 
 
@@ -67,16 +66,15 @@ def generate_token_payload(user):
     settings = get_user_settings(user)
     organizations = user.organizations.all()
 
-    refresh["is_dark"] = settings.is_dark if settings else False
     refresh["email"] = user.email
-    refresh["first_name"] = user.first_name
-    refresh["last_name"] = user.last_name
-    refresh["profile_picture"] = user.profile_picture
+    # refresh["first_name"] = user.first_name
+    # refresh["last_name"] = user.last_name
+    # refresh["profile_picture"] = user.profile_picture
     refresh["language"] = settings.language if settings else user.language
     refresh["timezone"] = user.timezone
-    refresh["is_verified"] = user.is_verified
-    refresh["last_login"] = user.last_login.isoformat() if user.last_login else None
-    refresh["is_active"] = user.is_active
+    # refresh["is_verified"] = user.is_verified
+    # refresh["last_login"] = user.last_login.isoformat() if user.last_login else None
+    # refresh["is_active"] = user.is_active
     refresh["is_superuser"] = user.is_superuser
     refresh["tenants"] = [
         str(tenant_id)

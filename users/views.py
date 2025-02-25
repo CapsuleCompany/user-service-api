@@ -16,6 +16,7 @@ from .serializers import *
 from .models import *
 from django.conf import settings
 import time
+import uuid
 
 
 User = get_user_model()
@@ -80,34 +81,9 @@ class UserCreationView(APIView):
 
         if serializer.is_valid():
             try:
-                user = serializer.save()
-                refresh = RefreshToken.for_user(user)
-                access_token = str(refresh.access_token)
-
+                serializer.save()
                 response_data = {"message": "User created successfully"}
-
-                # Return tokens in DEBUG mode for testing
-                if settings.DEBUG:
-                    response_data.update({"access": access_token, "refresh": str(refresh)})
-
                 response = Response(response_data, status=status.HTTP_201_CREATED)
-
-                # Set tokens as HTTP-only cookies
-                response.set_cookie(
-                    key="accessToken",
-                    value=access_token,
-                    httponly=True,
-                    secure=not settings.DEBUG,
-                    samesite="Lax",
-                )
-                response.set_cookie(
-                    key="refreshToken",
-                    value=str(refresh),
-                    httponly=True,
-                    secure=not settings.DEBUG,
-                    samesite="Lax",
-                )
-
                 return response
 
             except Exception as e:
@@ -119,13 +95,21 @@ class UserCreationView(APIView):
         return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
+class LogoutAllView(APIView):
+    """Log out from all sessions"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        UserSession.objects.filter(user=request.user).delete()
+        return Response({"message": "Logged out from all devices"}, status=200)
+
+
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
-            refresh_token = request.COOKIES.get("refreshToken")  # Get from cookies
-
+            refresh_token = request.COOKIES.get("refreshToken")
             if not refresh_token:
                 return Response(
                     {"error": "Refresh token is required"},
@@ -139,8 +123,8 @@ class LogoutView(APIView):
             response = Response({"message": "Successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
 
             # Remove tokens from cookies
-            response.delete_cookie("accessToken")
-            response.delete_cookie("refreshToken")
+            response.delete_cookie("cc_access")
+            response.delete_cookie("session_id")
 
             return response
 
@@ -175,26 +159,38 @@ class LoginView(TokenObtainPairView):
         user.save(update_fields=["last_login"])
 
         refresh = validated_data["refresh"]
+        session_id = uuid.uuid4()
         access_token = validated_data["access"]
-
         response_data = {"message": "Login successful"}
+
+        ipaddress, _ = IpAddress.objects.get_or_create(
+            ip_address=get_client_ip(request)
+        )
+
+        UserSession.objects.create(
+            user=user,
+            session_id=session_id,
+            refresh_token=refresh,
+            expires_at=timezone.now() + settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"],
+            user_agent=request.headers.get("User-Agent"),
+            ip_address=ipaddress,
+        )
 
         # Return tokens in DEBUG mode
         if settings.DEBUG:
             response_data.update({"access": access_token, "refresh": refresh})
-
         response = Response(response_data, status=status.HTTP_200_OK)
 
         response.set_cookie(
-            key="accessToken",
+            key="cc_access",
             value=access_token,
             httponly=True,
             secure=not settings.DEBUG,
             samesite="Lax",
         )
         response.set_cookie(
-            key="refreshToken",
-            value=refresh,
+            key="session_id",
+            value=str(session_id),
             httponly=True,
             secure=not settings.DEBUG,
             samesite="Lax",
@@ -293,7 +289,8 @@ class UserViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         print(request.user.id)
         print(request.user)
-        print(request.user.email)
+        print(request.headers)
+        # print(request.user.email)
         sleep(2)
         queryset = self.get_queryset().order_by("-date_joined")
         serializer = self.get_serializer(queryset, many=True)

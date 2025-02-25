@@ -150,7 +150,7 @@ class LoginView(TokenObtainPairView):
 
     def post(self, request, *args, **kwargs):
         """
-        Handle the login process and generate JWT tokens with custom claims.
+        Handle the login process and ensure only one session per device.
         """
         serializer = self.get_serializer(data=request.data)
         try:
@@ -164,29 +164,50 @@ class LoginView(TokenObtainPairView):
         user.save(update_fields=["last_login"])
 
         refresh = validated_data["refresh"]
-        session_id = uuid.uuid4()
         access_token = validated_data["access"]
+
+        ip_address, _ = IpAddress.objects.get_or_create(ip_address=get_client_ip(request))
+        user_agent = request.headers.get("User-Agent")
+
+        try:
+            # Check if session already exists for the same user & device
+            session, created = UserSession.objects.get_or_create(
+                user=user,
+                user_agent=user_agent,
+                ip_address=ip_address,
+                defaults={
+                    "session_id": uuid.uuid4(),
+                    "refresh_token": refresh,
+                    "expires_at": timezone.now() + settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"],
+                },
+            )
+
+            if not created:
+                # If session already exists, update the tokens and expiration time
+                session.refresh_token = refresh
+                session.expires_at = timezone.now() + settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+                session.save()
+
+        except UserSession.MultipleObjectsReturned:
+            # If multiple sessions exist, delete all and create a new one
+            UserSession.objects.filter(user=user, user_agent=user_agent).delete()
+            session = UserSession.objects.create(
+                user=user,
+                user_agent=user_agent,
+                ip_address=ip_address,
+                session_id=uuid.uuid4(),
+                refresh_token=refresh,
+                expires_at=timezone.now() + settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"],
+            )
+
         response_data = {"message": "Login successful"}
-
-        ipaddress, _ = IpAddress.objects.get_or_create(
-            ip_address=get_client_ip(request)
-        )
-
-        UserSession.objects.create(
-            user=user,
-            session_id=session_id,
-            refresh_token=refresh,
-            expires_at=timezone.now() + settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"],
-            user_agent=request.headers.get("User-Agent"),
-            ip_address=ipaddress,
-        )
-
-        # Return tokens in DEBUG mode or for web clients
+        # Return tokens if it's a mobile client or in DEBUG mode
         auth_header = request.headers.get("Authorization")
         if not settings.DEBUG or auth_header:
             response_data.update({"access": access_token, "refresh": refresh})
-        response = Response(response_data, status=status.HTTP_200_OK)
 
+        response = Response(response_data, status=status.HTTP_200_OK)
+        # Set session cookies
         response.set_cookie(
             key="cc_access",
             value=access_token,
@@ -196,7 +217,7 @@ class LoginView(TokenObtainPairView):
         )
         response.set_cookie(
             key="session_id",
-            value=str(session_id),
+            value=str(session.session_id),
             httponly=True,
             secure=not settings.DEBUG,
             samesite="Lax",
@@ -354,7 +375,7 @@ class UserTenantView(viewsets.ModelViewSet):
 
 class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         return User.objects.all()

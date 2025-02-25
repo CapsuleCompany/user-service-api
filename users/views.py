@@ -205,54 +205,90 @@ class LoginView(TokenObtainPairView):
         return response
 
 
-class CustomTokenRefreshView(TokenRefreshView):
+class RefreshTokenView(TokenRefreshView):
     """
-    Overrides default refresh token logic to check session_id.
+    Overrides default refresh token logic:
+    - Mobile devices must send a refresh token.
+    - Web clients use session_id from cookies.
     """
 
     def post(self, request, *args, **kwargs):
-        refresh_token = request.data.get("refresh")
+        user_agent = request.headers.get("User-Agent", "").lower()
+        is_mobile = any(keyword in user_agent for keyword in ["mobile", "android", "iphone"])
+
+        refresh_token = request.data.get("refresh") if is_mobile else None
         session_id = request.COOKIES.get("session_id")
 
-        if not refresh_token or not session_id:
+        if not session_id and not refresh_token:
             return Response(
-                {"error": "Missing refresh token or session ID"},
+                {"error": "Missing session ID or refresh token"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Validate session
+        # Validate session using session_id
         try:
-            session = UserSession.objects.get(
-                session_id=session_id, refresh_token=refresh_token
-            )
-            if session.is_expired():
+            session = UserSession.objects.get(session_id=session_id)
+            if session.is_expired:
                 return Response(
                     {"error": "Session expired"}, status=status.HTTP_401_UNAUTHORIZED
                 )
+            if is_mobile and session.refresh_token != refresh_token:
+                return Response(
+                    {"error": "Invalid refresh token for mobile"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         except UserSession.DoesNotExist:
             return Response(
-                {"error": "Invalid session or token"},
+                {"error": "Invalid session"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Rotate refresh token
-        refresh = RefreshToken(refresh_token)
-        new_refresh_token = str(refresh)
+        # Rotate refresh token if mobile
+        if is_mobile:
+            try:
+                refresh = RefreshToken(refresh_token)
+                new_refresh_token = str(refresh)
+                session.refresh_token = new_refresh_token
+                session.expires_at = timezone.now() + settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+                session.save()
+            except Exception as e:
+                return Response({"error": f"Invalid refresh token: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            try:
+                if not session.refresh_token:
+                    return Response({"error": "Session refresh token is missing"}, status=status.HTTP_400_BAD_REQUEST)
+                refresh = RefreshToken(session.refresh_token)
+            except Exception as e:
+                return Response({"error": f"Invalid session refresh token: {str(e)}"},
+                                status=status.HTTP_400_BAD_REQUEST)
 
-        # Update session with new refresh token
-        session.refresh_token = new_refresh_token
-        session.expires_at = (
-            datetime.now() + settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
-        )
-        session.save()
+        response_data = {
+            "message": "Token refreshed successfully",
+            "access": str(refresh.access_token),
+        }
 
-        return Response(
-            {
-                "access": str(refresh.access_token),
-                "refresh": new_refresh_token,
-                "session_id": session_id,
-            }
+        if is_mobile:
+            response_data["refresh"] = new_refresh_token
+
+        response = Response(response_data, status=status.HTTP_200_OK)
+
+        # Set session cookies for web clients
+        response.set_cookie(
+            key="cc_access",
+            value=str(refresh.access_token),
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="Lax",
         )
+        response.set_cookie(
+            key="session_id",
+            value=str(session.session_id),
+            httponly=True,
+            secure=not settings.DEBUG,
+            samesite="Lax",
+        )
+
+        return response
 
 
 class UserTenantView(viewsets.ModelViewSet):

@@ -3,6 +3,7 @@ from django.db import models
 import uuid
 from common.models import BaseModel
 from .assets.choices import *
+from django.utils import timezone
 
 
 class AuthUser(AbstractUser):
@@ -232,6 +233,11 @@ class UserSession(BaseModel):
     expires_at = models.DateTimeField()
     user_agent = models.CharField(max_length=255, blank=True, null=True)
     ip_address = models.ForeignKey(IpAddress, on_delete=models.CASCADE, null=True)
+
+    @property
+    def is_expired(self):
+        """Returns True if the session is expired, False otherwise."""
+        return timezone.now() >= self.expires_at
 
     def __str__(self):
         return f"Session {self.session_id} for {self.user.username}"

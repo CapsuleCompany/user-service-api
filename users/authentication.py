@@ -9,6 +9,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 
 User = get_user_model()
 
+
 # Custom authentication backend for email or phone authentication
 class EmailOrPhoneBackend(BaseBackend):
     """

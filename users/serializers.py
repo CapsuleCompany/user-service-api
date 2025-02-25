@@ -37,7 +37,10 @@ class BaseUserSerializer(serializers.ModelSerializer):
         if User.objects.filter(email=data.get("email")).exists():
             errors["email"] = "A user with this email already exists."
 
-        if data.get("phone_number") and User.objects.filter(phone_number=data.get("phone_number")).exists():
+        if (
+            data.get("phone_number")
+            and User.objects.filter(phone_number=data.get("phone_number")).exists()
+        ):
             errors["phone_number"] = "A user with this phone number already exists."
 
         if errors:
@@ -49,6 +52,7 @@ class BaseUserSerializer(serializers.ModelSerializer):
     def is_valid_phone(phone_number):
         """Validate phone number format."""
         import re
+
         return re.match(r"^\+?1?\d{9,15}$", phone_number) is not None
 
 
@@ -113,7 +117,10 @@ class UserCreationSerializer(BaseUserSerializer):
         password = validated_data["password"]
 
         # Check if a user already exists
-        user = User.objects.filter(email=email).first() or User.objects.filter(phone_number=phone_number).first()
+        user = (
+            User.objects.filter(email=email).first()
+            or User.objects.filter(phone_number=phone_number).first()
+        )
 
         if user:
             # Authenticate user
@@ -167,9 +174,7 @@ class UserSerializer(BaseUserSerializer):
         admin_org = UserOrganization.objects.filter(user=admin_user).first()
 
         if user:
-            UserOrganization.objects.create(
-                user=user, tenant_id=admin_org.tenant_id
-            )
+            UserOrganization.objects.create(user=user, tenant_id=admin_org.tenant_id)
 
         if password:
             user.set_password(password)

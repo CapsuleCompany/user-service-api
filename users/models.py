@@ -235,4 +235,3 @@ class UserSession(BaseModel):
 
     def __str__(self):
         return f"Session {self.session_id} for {self.user.username}"
-

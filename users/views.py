@@ -2,7 +2,7 @@ from time import sleep
 
 from django.utils import timezone
 from rest_framework.status import *
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import generics, permissions, viewsets
 from rest_framework.views import APIView
@@ -16,6 +16,7 @@ from .serializers import *
 from .models import *
 from django.conf import settings
 import time
+from datetime import datetime
 import uuid
 
 
@@ -91,12 +92,14 @@ class UserCreationView(APIView):
                     {"error": f"User creation failed: {str(e)}"},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
-
-        return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 class LogoutAllView(APIView):
     """Log out from all sessions"""
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -119,8 +122,10 @@ class LogoutView(APIView):
             # Attempt to blacklist the refresh token
             token = RefreshToken(refresh_token)
             token.blacklist()
-
-            response = Response({"message": "Successfully logged out"}, status=status.HTTP_205_RESET_CONTENT)
+            response = Response(
+                {"message": "Successfully logged out"},
+                status=status.HTTP_205_RESET_CONTENT,
+            )
 
             # Remove tokens from cookies
             response.delete_cookie("cc_access")
@@ -176,8 +181,9 @@ class LoginView(TokenObtainPairView):
             ip_address=ipaddress,
         )
 
-        # Return tokens in DEBUG mode
-        if settings.DEBUG:
+        # Return tokens in DEBUG mode or for web clients
+        auth_header = request.headers.get("Authorization")
+        if not settings.DEBUG or auth_header:
             response_data.update({"access": access_token, "refresh": refresh})
         response = Response(response_data, status=status.HTTP_200_OK)
 
@@ -197,6 +203,56 @@ class LoginView(TokenObtainPairView):
         )
 
         return response
+
+
+class CustomTokenRefreshView(TokenRefreshView):
+    """
+    Overrides default refresh token logic to check session_id.
+    """
+
+    def post(self, request, *args, **kwargs):
+        refresh_token = request.data.get("refresh")
+        session_id = request.COOKIES.get("session_id")
+
+        if not refresh_token or not session_id:
+            return Response(
+                {"error": "Missing refresh token or session ID"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate session
+        try:
+            session = UserSession.objects.get(
+                session_id=session_id, refresh_token=refresh_token
+            )
+            if session.is_expired():
+                return Response(
+                    {"error": "Session expired"}, status=status.HTTP_401_UNAUTHORIZED
+                )
+        except UserSession.DoesNotExist:
+            return Response(
+                {"error": "Invalid session or token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Rotate refresh token
+        refresh = RefreshToken(refresh_token)
+        new_refresh_token = str(refresh)
+
+        # Update session with new refresh token
+        session.refresh_token = new_refresh_token
+        session.expires_at = (
+            datetime.now() + settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+        )
+        session.save()
+
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": new_refresh_token,
+                "session_id": session_id,
+            }
+        )
 
 
 class UserTenantView(viewsets.ModelViewSet):
@@ -299,7 +355,9 @@ class UserViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """Create a new user from Organization"""
         time.sleep(2)
-        serializer = self.get_serializer(data=request.data, context={"request": request})
+        serializer = self.get_serializer(
+            data=request.data, context={"request": request}
+        )
         if serializer.is_valid():
             try:
                 serializer.save()
@@ -322,14 +380,13 @@ class UserViewSet(viewsets.ModelViewSet):
                 {"message": "User deleted successfully"}, status=HTTP_204_NO_CONTENT
             )
         except User.DoesNotExist:
-            return Response(
-                {"error": "User not found"}, status=HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "User not found"}, status=HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response(
                 {"error": f"Failed to delete user: {str(e)}"},
                 status=HTTP_400_BAD_REQUEST,
             )
+
 
 class UserIPLocationView(APIView):
     permission_classes = [permissions.AllowAny]

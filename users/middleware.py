@@ -8,4 +8,5 @@ class AttachIPMiddleware:
     def __call__(self, request):
         request.ip_address = get_client_ip(request)
         response = self.get_response(request)
+        print(response, "middleware")
         return response

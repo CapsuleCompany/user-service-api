@@ -31,13 +31,11 @@ class Command(BaseCommand):
 
         if data == []:
             self.stdout.write(
-                self.style.ERROR(
-                    f"Tenant API has no tenants: {response.status_code}"
-                )
+                self.style.ERROR(f"Tenant API has no tenants: {response.status_code}")
             )
             return
 
-        tenant = data[0]['id']
+        tenant = data[0]["id"]
 
         email = "ccrowder@capsuleio.com"
         phone_number = "9377230086"
@@ -64,7 +62,9 @@ class Command(BaseCommand):
 
         UserSettings.objects.create(user=user)
 
-        org, created = UserOrganization.objects.get_or_create(user=user, tenant_id=tenant)
+        org, created = UserOrganization.objects.get_or_create(
+            user=user, tenant_id=tenant
+        )
         if created:
             self.stdout.write(
                 self.style.SUCCESS(f"User {email} added to organization {tenant}")

@@ -109,7 +109,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 KAFKA_TOPIC = env.str("KAFKA_TOPIC", default="default_topic")
 KAFKA_SERVERS = env.list("KAFKA_SERVERS", default=["kafka:9092"])
-APPEND_SLASH=False
+APPEND_SLASH = False
 
 
 CORS_ALLOWED_ORIGINS = [
